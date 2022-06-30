@@ -14,6 +14,7 @@ init() {
     fi
     client bpfd
     client bpfctl
+    client go-bpfd-client
 }
 
 client() {
