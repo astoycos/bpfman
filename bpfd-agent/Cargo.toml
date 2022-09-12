@@ -44,6 +44,7 @@ edit = "0.1.3"
 tokio-stream = { version = "0.1.9", features = ["net"] }
 tonic = { version = "0.8", features = ["tls"] }
 openssl = { version = "0.10.41", features = ["vendored"] }
+gethostname = "0.2.3"
 
 [dependencies.kube]
 features = ["runtime", "client", "derive"]

@@ -13,6 +13,7 @@ use thiserror::Error;
 use tokio::time::Duration;
 use tonic::transport::Channel;
 use tracing::*;
+use gethostname::gethostname;
 
 use crate::finalizer;
 
@@ -67,6 +68,10 @@ pub async fn reconcile(ebpf_program: Arc<EbpfProgram>, ctx: Arc<Context>) -> Res
     // Make ebpfProgram client
     let ebpf_programs_api: Api<EbpfProgram> = Api::namespaced(client.clone(), ns);
 
+    let hostname = gethostname();
+    let uuid_annotation_tag = format!("bpfd.ebpfprogram.io/{:?}/uuid", hostname);
+    let attach_point_annotation_tag = format!("bpfd.ebpfprogram.io/{:?}/attach_point", hostname);
+
     // Performs action as decided by the `determine_action` function.
     return match determine_action(&ebpf_program) {
         EbpfProgramAction::Create => {
@@ -91,8 +96,8 @@ pub async fn reconcile(ebpf_program: Arc<EbpfProgram>, ctx: Arc<Context>) -> Res
                 "kind": "EbpfProgram",
                 "metadata": {
                     "annotations": {
-                        "bpfd.ebpfprogram.io/uuid": uuid,
-                        "bpfd.ebpfprogram.io/attach_point": attach_point
+                        uuid_annotation_tag: uuid,
+                        attach_point_annotation_tag: attach_point
                     }
                 }
             }));
