@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: (MIT OR Apache-2.0)
 // Copyright Authors of bpfd
+use std::{env, path::Path, fs::File, collections::HashMap};
 use flate2::read::GzDecoder;
-use log::debug;
+use log::{debug, warn};
 use oci_distribution::{client, manifest, secrets::RegistryAuth, Client, Reference};
 use serde::Deserialize;
 use serde_json::Value;
 use tar::Archive;
 use thiserror::Error;
+use base64;
 
 const CONTAINERIZED_BYTECODE_PATH: &str = "/var/bpfd/bytecode/";
 
@@ -32,6 +34,30 @@ pub enum ImageError {
     BytecodeImagePullFailure(#[source] oci_distribution::errors::OciDistributionError),
     #[error("Failed to extract bytecode from Image")]
     BytecodeImageExtractFailure,
+    #[error("Failed to build Auth FilePath")]
+    AuthFilePathBuildFailure,    
+    #[error("Failed to open auth file: {0}")]
+    OpenAuthFileFailure(#[source] std::io::Error),
+    #[error("Failed to parse auth file: {0}")]
+    AuthFileParseFailure(#[source] serde_json::Error),
+    #[error("Failed to decode auth file entry")]
+    AuthFileDecodeFailure,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct AuthConfig {
+    pub(crate) auth: Option<String>,
+    
+}
+
+// Intentionally leave out creds_store and creds_helpers for now since oci-distribution
+// crate doesn't support authentication with tokens yet
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ContainerConfig {
+    pub(crate) auths: Option<HashMap<String, AuthConfig>>,
+    // pub(crate) creds_store: Option<String>,
+    // pub(crate) cred_helpers: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -48,7 +74,7 @@ pub async fn pull_bytecode(image_url: &String) -> Result<ProgramOverrides, anyho
 
     // TODO(astoycos): Add option/flag to authenticate against private image repositories
     // https://github.com/redhat-et/bpfd/issues/119
-    let auth = RegistryAuth::Anonymous;
+    let auth = get_registry_auth(&image)?;
 
     let config = client::ClientConfig {
         protocol,
@@ -104,4 +130,75 @@ pub async fn pull_bytecode(image_url: &String) -> Result<ProgramOverrides, anyho
         path: bytecode_path,
         image_meta: image_labels,
     })
+}
+
+/// get_registry_auth searches the local fs for remote container registry credentials. 
+/// The default path for reading credentials is ${XDG_RUNTIME_DIR}/containers/auth.json, 
+/// but as a backup it also looks in $HOME/.docker/config.json or what's specified 
+/// within the "DOCKER_CONFIG" environment variable. 
+fn get_registry_auth(image_ref: &Reference) -> Result<RegistryAuth, ImageError> {     
+    let registry = image_ref.registry();
+
+    let container_auth_path = env::var_os("XDG_RUNTIME_DIR")
+        .map(|home| Path::new(&home).join("containers/auth.json"))
+        .ok_or(ImageError::AuthFilePathBuildFailure)?;
+    
+    // Either return ~/.docker or what's defined in the $DOCKER_CONFIG Env Var
+    let docker_auth_path = env::var_os("DOCKER_CONFIG")
+        .map(|dir| Path::new(&dir).to_path_buf())
+        .or_else(|| env::var_os("HOME").map(|home| Path::new(&home).join(".docker/config.json")))
+        .ok_or(ImageError::AuthFilePathBuildFailure)?;
+
+    let container_auth_file = File::open(container_auth_path)
+    .map_err(ImageError::OpenAuthFileFailure)?;
+
+    let container_auths = serde_json::from_reader::<_, ContainerConfig>(container_auth_file).
+    map_err(ImageError::AuthFileParseFailure)?;
+
+    match parse_registry_auth(container_auths, registry)? { 
+        Some(creds) => return Ok(creds),
+        None => warn!("No credentials found in container auths for registry {}", registry),
+    };
+
+    let docker_auth_file = File::open(docker_auth_path)
+    .map_err(ImageError::OpenAuthFileFailure)?;
+    
+    let docker_auths = serde_json::from_reader::<_, ContainerConfig>(docker_auth_file).
+    map_err(ImageError::AuthFileParseFailure)?;
+
+    match parse_registry_auth(docker_auths, registry)? { 
+        Some(credential) => Ok(credential),
+        None => {
+            warn!("No credentials found in container auths or docker auths for registry {}", registry);
+            Ok(RegistryAuth::Anonymous)
+        }
+    }
+
+}
+
+
+fn parse_registry_auth(container_auths: ContainerConfig, registry: &str) -> Result<Option<RegistryAuth>, ImageError> {
+    if let Some(mut auth) = container_auths.auths {
+        // Get only registries we care about, i.e keys containing the registry name
+        let entry = auth
+        .drain()
+        .find_map(|(k,v)| k.contains(registry).then_some(v))
+        .ok_or(ImageError::AuthFileDecodeFailure)?
+        .auth
+        .ok_or(ImageError::AuthFileDecodeFailure)?;
+            
+        debug!("Found auth for {}: {}", registry, entry);
+        
+        let decoded_auth = base64::decode(entry)
+        .map_err(|_| ImageError::AuthFileDecodeFailure)?;
+
+        let decoded_auth_str = std::str::from_utf8(&decoded_auth)
+        .map_err(|_| ImageError::AuthFileDecodeFailure)?;
+        
+        let usr_pass: Vec<&str> = decoded_auth_str.split(':').collect();
+        
+        return Ok(Some(RegistryAuth::Basic(String::from(usr_pass[0]), String::from(usr_pass[1]))))
+    }
+
+    Ok(None)
 }
