@@ -34,6 +34,7 @@ const (
 const (
 	ProgTypeXdp = iota
 	ProgTypeTc
+	ProgTypeTracepoint
 )
 
 const (
@@ -41,13 +42,13 @@ const (
 )
 
 type ParameterData struct {
-	Iface string
-	Priority int
-	Direction gobpfd.Direction
-	CrdFlag bool
-	Uuid string
+	Iface            string
+	Priority         int
+	Direction        gobpfd.Direction
+	CrdFlag          bool
+	Uuid             string
 	BytecodeLocation string
-	BytecodeSrc int
+	BytecodeSrc      int
 }
 
 func ParseParamData(progType int, configFilePath string, defaultBytecodeFile string) (ParameterData, error) {
@@ -83,7 +84,7 @@ func ParseParamData(progType int, configFilePath string, defaultBytecodeFile str
 	// "-iface" is the interface to run bpf program on. If not provided, then
 	// use value loaded from gocounter.toml file. If not provided, error.
 	//    ./go-xdp-counter -iface eth0
-	if len(paramData.Iface) == 0 {
+	if (progType == ProgTypeTc || progType == ProgTypeXdp) && len(paramData.Iface) == 0 {
 		return paramData, fmt.Errorf("interface is required")
 	}
 
@@ -144,7 +145,6 @@ func ParseParamData(progType int, configFilePath string, defaultBytecodeFile str
 		paramData.BytecodeLocation = FILE_PREFIX + path
 		paramData.BytecodeSrc = SrcLocation
 	}
-
 
 	if paramData.BytecodeSrc == SrcUuid {
 		log.Printf("Using Input: Interface=%s Source=%s",
