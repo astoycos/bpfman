@@ -86,7 +86,7 @@ func main() {
 	}()
 
 	// retrieve and report on the number of kill -SIGUSR1 calls
-	index := 0
+	index := uint32(0)
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
