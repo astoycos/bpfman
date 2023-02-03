@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/ebpf"
 	gobpfd "github.com/redhat-et/bpfd/clients/gobpfd/v1"
 	configMgmt "github.com/redhat-et/bpfd/examples/pkg/config-mgmt"
-	"github.com/redhat-et/bpfd/examples/pkg/bpfd-app-client"
+	bpfdClient "github.com/redhat-et/bpfd/bpfd-operator/pkg/bpfd-client"
 	"google.golang.org/grpc"
 )
 
@@ -25,11 +25,11 @@ type Stats struct {
 }
 
 const (
-	DefaultConfigPath     = "/etc/bpfd/gocounter.toml"
-	DefaultMapDir         = "/run/bpfd/fs/maps"
-	DefaultByteCodeFile   = "bpf_bpfel.o"
-	BpfProgramConfigName  = "go-tc-counter-example"
-	BpfProgramMapIndex    = "tc_stats_map"
+	DefaultConfigPath    = "/etc/bpfd/gocounter.toml"
+	DefaultMapDir        = "/run/bpfd/fs/maps"
+	DefaultByteCodeFile  = "bpf_bpfel.o"
+	BpfProgramConfigName = "go-tc-counter-example"
+	BpfProgramMapIndex   = "tc_stats_map"
 )
 
 const (
@@ -55,15 +55,23 @@ func main() {
 		action = "sent"
 	}
 
-	var mapPath string
+	var statsMap *ebpf.Map
+
+	opts := &ebpf.LoadPinOptions{
+		ReadOnly:  false,
+		WriteOnly: false,
+		Flags:     0,
+	}
 
 	// If running in a Kubernetes deployment, read the map path from the Bpf Program CRD
-	if paramData.CrdFlag == true {
-		mapPath, err = bpfdAppClient.GetMapPathDyn(BpfProgramConfigName, BpfProgramMapIndex)
+	if paramData.CrdFlag {
+		maps, err := bpfdClient.GetMaps(BpfProgramConfigName, []string{BpfProgramMapIndex}, opts)
 		if err != nil {
-			log.Printf("error reading BpfProgram CRD: %v\n", err)
+			log.Printf("error getting bpf stats map: %v\n", err)
 			return
 		}
+
+		statsMap = maps[BpfProgramMapIndex]
 	} else {
 		// If the bytecode src is a UUID, skip the loading and unloading of the bytecode.
 		if paramData.BytecodeSrc != configMgmt.SrcUuid {
@@ -85,7 +93,7 @@ func main() {
 			c := gobpfd.NewLoaderClient(conn)
 
 			loadRequest := &gobpfd.LoadRequest{
-				Location: paramData.BytecodeLocation,
+				Location:    paramData.BytecodeLocation,
 				SectionName: "stats",
 				ProgramType: gobpfd.ProgramType_TC,
 				AttachType: &gobpfd.LoadRequest_NetworkMultiAttach{
@@ -122,19 +130,14 @@ func main() {
 		}
 
 		// 3. Get access to our map
-		mapPath = fmt.Sprintf("%s/%s/tc_stats_map", DefaultMapDir, paramData.Uuid)
-	}
+		mapPath := fmt.Sprintf("%s/%s/tc_stats_map", DefaultMapDir, paramData.Uuid)
 
-	opts := &ebpf.LoadPinOptions{
-		ReadOnly:  false,
-		WriteOnly: false,
-		Flags:     0,
-	}
-	statsMap, err := ebpf.LoadPinnedMap(mapPath, opts)
-	if err != nil {
-		log.Printf("Failed to load pinned Map: %s\n", mapPath)
-		log.Print(err)
-		return
+		statsMap, err = ebpf.LoadPinnedMap(mapPath, opts)
+		if err != nil {
+			log.Printf("Failed to load pinned Map: %s\n", mapPath)
+			log.Print(err)
+			return
+		}
 	}
 
 	ticker := time.NewTicker(3 * time.Second)

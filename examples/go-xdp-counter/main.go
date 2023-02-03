@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/ebpf"
 	gobpfd "github.com/redhat-et/bpfd/clients/gobpfd/v1"
 	configMgmt "github.com/redhat-et/bpfd/examples/pkg/config-mgmt"
-	"github.com/redhat-et/bpfd/examples/pkg/bpfd-app-client"
+	bpfdClient "github.com/redhat-et/bpfd/bpfd-operator/pkg/bpfd-client"
 	"google.golang.org/grpc"
 )
 
@@ -48,15 +48,24 @@ func main() {
 		return
 	}
 
-	var mapPath string
+
+	var statsMap *ebpf.Map
+
+	opts := &ebpf.LoadPinOptions{
+		ReadOnly:  false,
+		WriteOnly: false,
+		Flags:     0,
+	}
 
 	// If running in a Kubernetes deployment, read the map path from the Bpf Program CRD
 	if paramData.CrdFlag == true {
-		mapPath, err = bpfdAppClient.GetMapPathDyn(BpfProgramConfigName, BpfProgramMapIndex)
+		maps, err := bpfdClient.GetMaps(BpfProgramConfigName, []string{BpfProgramMapIndex}, opts)
 		if err != nil {
-			log.Printf("error reading BpfProgram CRD: %v\n", err)
+			log.Printf("error getting bpf stats map: %v\n", err)
 			return
 		}
+
+		statsMap = maps[BpfProgramMapIndex]
 	} else {
 		// If the bytecode src is a UUID, skip the loading and unloading of the bytecode.
 		if paramData.BytecodeSrc != configMgmt.SrcUuid {
@@ -114,19 +123,14 @@ func main() {
 		}
 
 		// 3. Get access to our map
-		mapPath = fmt.Sprintf("%s/%s/xdp_stats_map", DefaultMapDir, paramData.Uuid)
-	}
+		mapPath := fmt.Sprintf("%s/%s/xdp_stats_map", DefaultMapDir, paramData.Uuid)
 
-	opts := &ebpf.LoadPinOptions{
-		ReadOnly:  false,
-		WriteOnly: false,
-		Flags:     0,
-	}
-	statsMap, err := ebpf.LoadPinnedMap(mapPath, opts)
-	if err != nil {
-		log.Printf("Failed to load pinned Map: %s\n", mapPath)
-		log.Print(err)
-		return
+		statsMap, err = ebpf.LoadPinnedMap(mapPath, opts)
+		if err != nil {
+			log.Printf("Failed to load pinned Map: %s\n", mapPath)
+			log.Print(err)
+			return
+		}
 	}
 
 	ticker := time.NewTicker(3 * time.Second)
