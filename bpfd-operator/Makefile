@@ -168,7 +168,7 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 
 
 .PHONY: generate
-generate: generate-register generate-deepcopy generate-typed-clients generate-typed-listers generate-typed-informers ## Generate deepcopy, client, lister, and informer code
+generate: manifests generate-register generate-deepcopy generate-typed-clients generate-typed-listers generate-typed-informers ## Generate deepcopy, client, lister, and informer code
 
 .PHONY: generate-register
 generate-register:
