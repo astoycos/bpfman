@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package bpfdclient
+package helpers
 
 import (
 	"context"
@@ -22,7 +22,9 @@ import (
 	"os"
 
 	"github.com/cilium/ebpf"
-	bpfdiov1alpha1 "github.com/redhat-et/bpfd/bpfd-operator/api/v1alpha1"
+	bpfdiov1alpha1 "github.com/redhat-et/bpfd/bpfd-operator/apis/v1alpha1"
+
+	//"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,6 +34,14 @@ import (
 
 const (
 	DefaultMapDir = "/run/bpfd/fs/maps"
+)
+
+type ProgType string
+
+const (
+	Tc         ProgType = "TC"
+	Xdp                 = "XDP"
+	TracePoint          = "TRACEPOINT"
 )
 
 // GetMaps is meant to be used by applications wishing to use BPFD. It takes in a bpf program
@@ -93,4 +103,67 @@ func GetMaps(bpfProgramConfigName string, mapNames []string, opts *ebpf.LoadPinO
 	}
 
 	return bpfMaps, nil
+}
+
+func NewBpfProgramConfig(name string, progType ProgType) *bpfdiov1alpha1.BpfProgramConfig {
+	switch progType {
+	case Xdp, Tc:
+		return &bpfdiov1alpha1.BpfProgramConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
+			},
+			Spec: bpfdiov1alpha1.BpfProgramConfigSpec{
+				Type: string(progType),
+				AttachPoint: bpfdiov1alpha1.BpfProgramAttachPoint{
+					NetworkMultiAttach: &bpfdiov1alpha1.BpfNetworkMultiAttach{},
+				},
+			},
+		}
+	case TracePoint:
+		return &bpfdiov1alpha1.BpfProgramConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
+			},
+			Spec: bpfdiov1alpha1.BpfProgramConfigSpec{
+				Type: string(progType),
+				AttachPoint: bpfdiov1alpha1.BpfProgramAttachPoint{
+					SingleAttach: &bpfdiov1alpha1.BpfSingleAttach{},
+				},
+			},
+		}
+	default:
+		return nil
+	}
+}
+
+func CreateOrUpdateBpfProgConf(progConfig *bpfdiov1alpha1.BpfProgramConfig) error {
+	progName := progConfig.GetName()
+
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return fmt.Errorf("error getting in-cluster kube-config: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Get map pin path from relevant BpfProgram Object with a dynamic go-client
+	clientSet := dynamic.NewForConfigOrDie(config)
+
+	bpfProgramConfigResource := schema.GroupVersionResource{
+		Group:    "bpfd.io",
+		Version:  "v1alpha1",
+		Resource: "bpfprogramconfigs",
+	}
+
+	_, err = clientSet.Resource(bpfProgramConfigResource).Get(ctx, progName, metav1.GetOptions{})
+	// Create
+	// if errors.IsNotFound(err) {
+	// 	_, err = clientSet.Resource(bpfProgramConfigResource).Create(ctx, progConfig, metav1.CreateOptions{})
+	// } else {
+	// 	return fmt.Errorf("error getting BpfProgramConfig %s: %v", progName, err)
+	// }
+
+	// Update
+	return nil
+
 }

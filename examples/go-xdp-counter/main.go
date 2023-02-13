@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/ebpf"
 	gobpfd "github.com/redhat-et/bpfd/clients/gobpfd/v1"
 	configMgmt "github.com/redhat-et/bpfd/examples/pkg/config-mgmt"
-	bpfdClient "github.com/redhat-et/bpfd/bpfd-operator/pkg/bpfd-client"
+	bpfdClient "github.com/redhat-et/bpfd/bpfd-operator/pkg/helpers"
 	"google.golang.org/grpc"
 )
 
