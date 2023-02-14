@@ -26,6 +26,7 @@ import (
 	bpfdclientset "github.com/redhat-et/bpfd/bpfd-operator/pkg/client/clientset/versioned"
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	"k8s.io/client-go/tools/clientcmd"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 )
@@ -42,18 +43,32 @@ const (
 	TracePoint          = "TRACEPOINT"
 )
 
+// Get bpfd Kubernetes Client dynamically switches between in cluster and out of 
+// cluster config setup.
+func GetClientOrDie() *bpfdclientset.Clientset {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		kubeConfig :=
+			clientcmd.NewDefaultClientConfigLoadingRules().GetDefaultFilename()
+		config, err = clientcmd.BuildConfigFromFlags("", kubeConfig)
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Println("Program running from outside of the cluster, picking config from --kubeconfig flag")
+	} else {
+		fmt.Println("Program running inside the cluster, picking the in-cluster configuration")
+	}
+
+	return bpfdclientset.NewForConfigOrDie(config)
+}
+
 // GetMaps is meant to be used by applications wishing to use BPFD. It takes in a bpf program
 // name and a list of map names.  If bpfd is up and running this function will succeed, if
 // not it will return an error and the user can decide wether or not to use bpfd as the loader
 // for their bpfProgram
-func GetMaps(bpfProgramConfigName string, mapNames []string, opts *ebpf.LoadPinOptions) (map[string]*ebpf.Map, error) {
+func GetMaps(c *bpfdclientset.Clientset, bpfProgramConfigName string, mapNames []string, opts *ebpf.LoadPinOptions) (map[string]*ebpf.Map, error) {
 	bpfMaps := map[string]*ebpf.Map{}
-
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, fmt.Errorf("error getting in-cluster kube-config: %v", err)
-	}
-
 	ctx := context.Background()
 
 	// Get the nodename where this pod is running
@@ -63,10 +78,7 @@ func GetMaps(bpfProgramConfigName string, mapNames []string, opts *ebpf.LoadPinO
 	}
 	bpfProgramName := bpfProgramConfigName + "-" + nodeName
 
-	// Get map pin path from relevant BpfProgram Object with a dynamic go-client
-	clientSet := bpfdclientset.NewForConfigOrDie(config)
-
-	bpfProgram, err := clientSet.BpfdV1alpha1().BpfPrograms().Get(ctx, bpfProgramName, metav1.GetOptions{})
+	bpfProgram, err := c.BpfdV1alpha1().BpfPrograms().Get(ctx, bpfProgramName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("error getting BpfProgram %s: %v", bpfProgramName, err)
 	}
@@ -121,24 +133,15 @@ func NewBpfProgramConfig(name string, progType ProgType) *bpfdiov1alpha1.BpfProg
 	}
 }
 
-func CreateOrUpdateBpfProgConf(progConfig *bpfdiov1alpha1.BpfProgramConfig) error {
+func CreateOrUpdateBpfProgConf(c *bpfdclientset.Clientset, progConfig *bpfdiov1alpha1.BpfProgramConfig) error {
 	progName := progConfig.GetName()
-
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return fmt.Errorf("error getting in-cluster kube-config: %v", err)
-	}
-
 	ctx := context.Background()
 
-	// Get map pin path from relevant BpfProgram Object with a dynamic go-client
-	clientSet := bpfdclientset.NewForConfigOrDie(config)
-
-	_, err = clientSet.BpfdV1alpha1().BpfProgramConfigs().Get(ctx, progName, metav1.GetOptions{})
+	_, err := c.BpfdV1alpha1().BpfProgramConfigs().Get(ctx, progName, metav1.GetOptions{})
 	if err != nil {
-		// Create
+		// Create if not found
 		if errors.IsNotFound(err) {
-			_, err = clientSet.BpfdV1alpha1().BpfProgramConfigs().Create(ctx, progConfig, metav1.CreateOptions{})
+			_, err = c.BpfdV1alpha1().BpfProgramConfigs().Create(ctx, progConfig, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("error creating BpfProgramConfig %s: %v", progName, err)
 			}
@@ -148,11 +151,13 @@ func CreateOrUpdateBpfProgConf(progConfig *bpfdiov1alpha1.BpfProgramConfig) erro
 		return fmt.Errorf("error getting BpfProgramConfig %s: %v", progName, err)
 	}
 
-	// Update
-	_, err = clientSet.BpfdV1alpha1().BpfProgramConfigs().Update(ctx, progConfig, metav1.UpdateOptions{})
+	// Update if already exists
+	_, err = c.BpfdV1alpha1().BpfProgramConfigs().Update(ctx, progConfig, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("error updating BpfProgramConfig %s: %v", progName, err)
 	}
 
 	return nil
 }
+
+func WaitForBpfProgConfLoad(progName string, ) error 

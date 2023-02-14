@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/ebpf"
 	gobpfd "github.com/redhat-et/bpfd/clients/gobpfd/v1"
 	configMgmt "github.com/redhat-et/bpfd/examples/pkg/config-mgmt"
-	bpfdClient "github.com/redhat-et/bpfd/bpfd-operator/pkg/helpers"
+	bpfdHelpers "github.com/redhat-et/bpfd/bpfd-operator/pkg/helpers"
 	"google.golang.org/grpc"
 )
 
@@ -63,9 +63,11 @@ func main() {
 		Flags:     0,
 	}
 
+	c := bpfdHelpers.GetClientOrDie()
+
 	// If running in a Kubernetes deployment, read the map path from the Bpf Program CRD
 	if paramData.CrdFlag {
-		maps, err := bpfdClient.GetMaps(BpfProgramConfigName, []string{BpfProgramMapIndex}, opts)
+		maps, err := bpfdHelpers.GetMaps(c, BpfProgramConfigName, []string{BpfProgramMapIndex}, opts)
 		if err != nil {
 			log.Printf("error getting bpf stats map: %v\n", err)
 			return
