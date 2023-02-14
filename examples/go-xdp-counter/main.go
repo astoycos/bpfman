@@ -58,7 +58,7 @@ func main() {
 	}
 
 	// If running in a Kubernetes deployment, read the map path from the Bpf Program CRD
-	if paramData.CrdFlag == true {
+	if paramData.CrdFlag {
 		maps, err := bpfdClient.GetMaps(BpfProgramConfigName, []string{BpfProgramMapIndex}, opts)
 		if err != nil {
 			log.Printf("error getting bpf stats map: %v\n", err)

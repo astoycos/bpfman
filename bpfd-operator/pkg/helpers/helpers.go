@@ -23,12 +23,10 @@ import (
 
 	"github.com/cilium/ebpf"
 	bpfdiov1alpha1 "github.com/redhat-et/bpfd/bpfd-operator/apis/v1alpha1"
+	bpfdclientset "github.com/redhat-et/bpfd/bpfd-operator/pkg/client/clientset/versioned"
+	"k8s.io/apimachinery/pkg/api/errors"
 
-	//"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 )
 
@@ -40,7 +38,7 @@ type ProgType string
 
 const (
 	Tc         ProgType = "TC"
-	Xdp                 = "XDP"
+	Xdp        ProgType = "XDP"
 	TracePoint          = "TRACEPOINT"
 )
 
@@ -66,24 +64,11 @@ func GetMaps(bpfProgramConfigName string, mapNames []string, opts *ebpf.LoadPinO
 	bpfProgramName := bpfProgramConfigName + "-" + nodeName
 
 	// Get map pin path from relevant BpfProgram Object with a dynamic go-client
-	clientSet := dynamic.NewForConfigOrDie(config)
+	clientSet := bpfdclientset.NewForConfigOrDie(config)
 
-	bpfProgramResource := schema.GroupVersionResource{
-		Group:    "bpfd.io",
-		Version:  "v1alpha1",
-		Resource: "bpfprograms",
-	}
-
-	bpfProgramBlob, err := clientSet.Resource(bpfProgramResource).
-		Get(ctx, bpfProgramName, metav1.GetOptions{})
+	bpfProgram, err := clientSet.BpfdV1alpha1().BpfPrograms().Get(ctx, bpfProgramName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("error getting BpfProgram %s: %v", bpfProgramName, err)
-	}
-
-	var bpfProgram bpfdiov1alpha1.BpfProgram
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(bpfProgramBlob.UnstructuredContent(), &bpfProgram)
-	if err != nil {
-		panic(err)
 	}
 
 	// TODO (astoycos) This doesn't support multiple programs in a single bpfProgram Object yet
@@ -147,23 +132,27 @@ func CreateOrUpdateBpfProgConf(progConfig *bpfdiov1alpha1.BpfProgramConfig) erro
 	ctx := context.Background()
 
 	// Get map pin path from relevant BpfProgram Object with a dynamic go-client
-	clientSet := dynamic.NewForConfigOrDie(config)
+	clientSet := bpfdclientset.NewForConfigOrDie(config)
 
-	bpfProgramConfigResource := schema.GroupVersionResource{
-		Group:    "bpfd.io",
-		Version:  "v1alpha1",
-		Resource: "bpfprogramconfigs",
+	_, err = clientSet.BpfdV1alpha1().BpfProgramConfigs().Get(ctx, progName, metav1.GetOptions{})
+	if err != nil {
+		// Create
+		if errors.IsNotFound(err) {
+			_, err = clientSet.BpfdV1alpha1().BpfProgramConfigs().Create(ctx, progConfig, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("error creating BpfProgramConfig %s: %v", progName, err)
+			}
+
+			return nil
+		}
+		return fmt.Errorf("error getting BpfProgramConfig %s: %v", progName, err)
 	}
 
-	_, err = clientSet.Resource(bpfProgramConfigResource).Get(ctx, progName, metav1.GetOptions{})
-	// Create
-	// if errors.IsNotFound(err) {
-	// 	_, err = clientSet.Resource(bpfProgramConfigResource).Create(ctx, progConfig, metav1.CreateOptions{})
-	// } else {
-	// 	return fmt.Errorf("error getting BpfProgramConfig %s: %v", progName, err)
-	// }
-
 	// Update
-	return nil
+	_, err = clientSet.BpfdV1alpha1().BpfProgramConfigs().Update(ctx, progConfig, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("error updating BpfProgramConfig %s: %v", progName, err)
+	}
 
+	return nil
 }
