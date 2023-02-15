@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/apimachinery/pkg/labels"
 
 	bpfdoperator "github.com/redhat-et/bpfd/bpfd-operator/controllers/bpfd-operator"
 )
@@ -174,6 +175,20 @@ func DeleteBpfProgConf(c *bpfdclientset.Clientset, progName string) error {
 	err := c.BpfdV1alpha1().BpfProgramConfigs().Delete(ctx, progName, metav1.DeleteOptions{})
 	if err != nil {
 		return fmt.Errorf("error Deleting BpfProgramConfig %s: %v", progName, err)
+	}
+
+	return nil
+}
+
+func DeleteBpfProgConfLabels(c *bpfdclientset.Clientset, selector *metav1.LabelSelector) error {
+	ctx := context.Background()
+
+	err := c.BpfdV1alpha1().BpfProgramConfigs().DeleteCollection(ctx, metav1.DeleteOptions{}, 
+		metav1.ListOptions{
+			LabelSelector: labels.Set(selector.MatchLabels).String(),
+		})
+	if err != nil {
+		return fmt.Errorf("error Deleting BpfProgramConfigs for labels %s: %v", labels.Set(selector.MatchLabels).String(), err)
 	}
 
 	return nil
