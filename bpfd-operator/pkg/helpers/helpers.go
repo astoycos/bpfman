@@ -26,9 +26,11 @@ import (
 	bpfdiov1alpha1 "github.com/redhat-et/bpfd/bpfd-operator/apis/v1alpha1"
 	bpfdclientset "github.com/redhat-et/bpfd/bpfd-operator/pkg/client/clientset/versioned"
 	"k8s.io/apimachinery/pkg/api/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -47,6 +49,8 @@ const (
 	TracePoint          = "TRACEPOINT"
 )
 
+var log = ctrl.Log.WithName("bpfd-helpers")
+
 // Get bpfd Kubernetes Client dynamically switches between in cluster and out of
 // cluster config setup.
 func GetClientOrDie() *bpfdclientset.Clientset {
@@ -59,9 +63,9 @@ func GetClientOrDie() *bpfdclientset.Clientset {
 			panic(err)
 		}
 
-		fmt.Println("Program running from outside of the cluster, picking config from --kubeconfig flag")
+		log.Info("Program running from outside of the cluster, picking config from --kubeconfig flag")
 	} else {
-		fmt.Println("Program running inside the cluster, picking the in-cluster configuration")
+		log.Info("Program running inside the cluster, picking the in-cluster configuration")
 	}
 
 	return bpfdclientset.NewForConfigOrDie(config)
@@ -164,11 +168,22 @@ func CreateOrUpdateBpfProgConf(c *bpfdclientset.Clientset, progConfig *bpfdiov1a
 	return nil
 }
 
+func DeleteBpfProgConf(c *bpfdclientset.Clientset, progName string) error {
+	ctx := context.Background()
+
+	err := c.BpfdV1alpha1().BpfProgramConfigs().Delete(ctx, progName, metav1.DeleteOptions{})
+	if err != nil {
+		return fmt.Errorf("error Deleting BpfProgramConfig %s: %v", progName, err)
+	}
+
+	return nil
+}
+
 func isbpfdProgConfLoaded(c *bpfdclientset.Clientset, progConfName string) wait.ConditionFunc {
 	ctx := context.Background()
 
 	return func() (bool, error) {
-		fmt.Printf(".") // progress bar!
+		log.Info(".") // progress bar!
 
 		bpfProgConfig, err := c.BpfdV1alpha1().BpfProgramConfigs().Get(ctx, progConfName, metav1.GetOptions{})
 		if err != nil {
@@ -190,4 +205,40 @@ func isbpfdProgConfLoaded(c *bpfdclientset.Clientset, progConfName string) wait.
 
 func WaitForBpfProgConfLoad(c *bpfdclientset.Clientset, progName string, timeout time.Duration) error {
 	return wait.PollImmediate(time.Second, timeout, isbpfdProgConfLoaded(c, progName))
+}
+
+func IsBpfdDeployed() bool {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		kubeConfig :=
+			clientcmd.NewDefaultClientConfigLoadingRules().GetDefaultFilename()
+		config, err = clientcmd.BuildConfigFromFlags("", kubeConfig)
+		if err != nil {
+			panic(err)
+		}
+
+		log.Info("Program running from outside of the cluster, picking config from --kubeconfig flag")
+	} else {
+		log.Info("Program running inside the cluster, picking the in-cluster configuration")
+	}
+
+	client, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		panic(err)
+	}
+
+	apiList, err := client.ServerGroups()
+	if err != nil {
+		log.Info("issue occurred while fetching ServerGroups")
+		panic(err)
+	}
+
+	for _, v := range apiList.Groups {
+		if v.Name == "bpfd.io" {
+
+			log.Info("bpfd.io found in apis, bpfd is deployed")
+			return true
+		}
+	}
+	return false
 }
