@@ -20,15 +20,19 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/cilium/ebpf"
 	bpfdiov1alpha1 "github.com/redhat-et/bpfd/bpfd-operator/apis/v1alpha1"
 	bpfdclientset "github.com/redhat-et/bpfd/bpfd-operator/pkg/client/clientset/versioned"
 	"k8s.io/apimachinery/pkg/api/errors"
 
-	"k8s.io/client-go/tools/clientcmd"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+
+	bpfdoperator "github.com/redhat-et/bpfd/bpfd-operator/controllers/bpfd-operator"
 )
 
 const (
@@ -43,7 +47,7 @@ const (
 	TracePoint          = "TRACEPOINT"
 )
 
-// Get bpfd Kubernetes Client dynamically switches between in cluster and out of 
+// Get bpfd Kubernetes Client dynamically switches between in cluster and out of
 // cluster config setup.
 func GetClientOrDie() *bpfdclientset.Clientset {
 	config, err := rest.InClusterConfig()
@@ -160,4 +164,30 @@ func CreateOrUpdateBpfProgConf(c *bpfdclientset.Clientset, progConfig *bpfdiov1a
 	return nil
 }
 
-func WaitForBpfProgConfLoad(progName string, ) error 
+func isbpfdProgConfLoaded(c *bpfdclientset.Clientset, progConfName string) wait.ConditionFunc {
+	ctx := context.Background()
+
+	return func() (bool, error) {
+		fmt.Printf(".") // progress bar!
+
+		bpfProgConfig, err := c.BpfdV1alpha1().BpfProgramConfigs().Get(ctx, progConfName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		// Get most recent condition
+		recentIdx := len(bpfProgConfig.Status.Conditions) - 1
+
+		condition := bpfProgConfig.Status.Conditions[recentIdx]
+
+		if condition.Type != string(bpfdoperator.BpfProgConfigReconcileSuccess) {
+			return false, fmt.Errorf("BpfProgramConfig: %s not ready with condition: %s", progConfName, condition.Type)
+		}
+
+		return true, nil
+	}
+}
+
+func WaitForBpfProgConfLoad(c *bpfdclientset.Clientset, progName string, timeout time.Duration) error {
+	return wait.PollImmediate(time.Second, timeout, isbpfdProgConfLoaded(c, progName))
+}
