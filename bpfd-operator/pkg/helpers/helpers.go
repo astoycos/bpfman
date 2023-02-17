@@ -29,11 +29,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/apimachinery/pkg/labels"
 
 	bpfdoperator "github.com/redhat-et/bpfd/bpfd-operator/controllers/bpfd-operator"
 )
@@ -146,7 +146,7 @@ func CreateOrUpdateBpfProgConf(c *bpfdclientset.Clientset, progConfig *bpfdiov1a
 	progName := progConfig.GetName()
 	ctx := context.Background()
 
-	_, err := c.BpfdV1alpha1().BpfProgramConfigs().Get(ctx, progName, metav1.GetOptions{})
+	progConfigExisting, err := c.BpfdV1alpha1().BpfProgramConfigs().Get(ctx, progName, metav1.GetOptions{})
 	if err != nil {
 		// Create if not found
 		if errors.IsNotFound(err) {
@@ -159,6 +159,8 @@ func CreateOrUpdateBpfProgConf(c *bpfdclientset.Clientset, progConfig *bpfdiov1a
 		}
 		return fmt.Errorf("error getting BpfProgramConfig %s: %v", progName, err)
 	}
+
+	progConfig.SetResourceVersion(progConfigExisting.GetResourceVersion())
 
 	// Update if already exists
 	_, err = c.BpfdV1alpha1().BpfProgramConfigs().Update(ctx, progConfig, metav1.UpdateOptions{})
@@ -183,7 +185,7 @@ func DeleteBpfProgConf(c *bpfdclientset.Clientset, progName string) error {
 func DeleteBpfProgConfLabels(c *bpfdclientset.Clientset, selector *metav1.LabelSelector) error {
 	ctx := context.Background()
 
-	err := c.BpfdV1alpha1().BpfProgramConfigs().DeleteCollection(ctx, metav1.DeleteOptions{}, 
+	err := c.BpfdV1alpha1().BpfProgramConfigs().DeleteCollection(ctx, metav1.DeleteOptions{},
 		metav1.ListOptions{
 			LabelSelector: labels.Set(selector.MatchLabels).String(),
 		})
