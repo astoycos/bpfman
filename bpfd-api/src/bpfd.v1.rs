@@ -1,24 +1,43 @@
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct LoadRequest {
-    #[prost(string, tag = "1")]
-    pub location: ::prost::alloc::string::String,
-    #[prost(string, tag = "2")]
+    #[prost(string, tag = "3")]
     pub section_name: ::prost::alloc::string::String,
-    #[prost(enumeration = "ProgramType", tag = "3")]
+    #[prost(enumeration = "ProgramType", tag = "4")]
     pub program_type: i32,
-    #[prost(oneof = "load_request::AttachType", tags = "4, 5")]
+    #[prost(oneof = "load_request::Location", tags = "1, 2")]
+    pub location: ::core::option::Option<load_request::Location>,
+    #[prost(oneof = "load_request::AttachType", tags = "5, 6")]
     pub attach_type: ::core::option::Option<load_request::AttachType>,
 }
 /// Nested message and enum types in `LoadRequest`.
 pub mod load_request {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Location {
+        #[prost(message, tag = "1")]
+        Image(super::BytecodeImage),
+        #[prost(string, tag = "2")]
+        File(::prost::alloc::string::String),
+    }
+    #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum AttachType {
-        #[prost(message, tag = "4")]
-        NetworkMultiAttach(super::NetworkMultiAttach),
         #[prost(message, tag = "5")]
+        NetworkMultiAttach(super::NetworkMultiAttach),
+        #[prost(message, tag = "6")]
         SingleAttach(super::SingleAttach),
     }
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BytecodeImage {
+    #[prost(string, tag = "1")]
+    pub url: ::prost::alloc::string::String,
+    #[prost(enumeration = "ImagePullPolicy", tag = "2")]
+    pub image_pull_policy: i32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct NetworkMultiAttach {
     #[prost(int32, tag = "1")]
@@ -32,25 +51,31 @@ pub struct NetworkMultiAttach {
     #[prost(enumeration = "ProceedOn", repeated, tag = "5")]
     pub proceed_on: ::prost::alloc::vec::Vec<i32>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SingleAttach {
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct LoadResponse {
     #[prost(string, tag = "1")]
     pub id: ::prost::alloc::string::String,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UnloadRequest {
     #[prost(string, tag = "1")]
     pub id: ::prost::alloc::string::String,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UnloadResponse {}
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListRequest {}
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListResponse {
     #[prost(message, repeated, tag = "2")]
@@ -58,6 +83,7 @@ pub struct ListResponse {
 }
 /// Nested message and enum types in `ListResponse`.
 pub mod list_response {
+    #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct ListResult {
         #[prost(string, tag = "1")]
@@ -73,6 +99,7 @@ pub mod list_response {
     }
     /// Nested message and enum types in `ListResult`.
     pub mod list_result {
+        #[allow(clippy::derive_partial_eq_without_eq)]
         #[derive(Clone, PartialEq, ::prost::Oneof)]
         pub enum AttachType {
             #[prost(message, tag = "6")]
@@ -101,6 +128,15 @@ impl ProgramType {
             ProgramType::Tracepoint => "TRACEPOINT",
         }
     }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "XDP" => Some(Self::Xdp),
+            "TC" => Some(Self::Tc),
+            "TRACEPOINT" => Some(Self::Tracepoint),
+            _ => None,
+        }
+    }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -119,6 +155,15 @@ impl Direction {
             Direction::None => "NONE",
             Direction::Ingress => "INGRESS",
             Direction::Egress => "EGRESS",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "NONE" => Some(Self::None),
+            "INGRESS" => Some(Self::Ingress),
+            "EGRESS" => Some(Self::Egress),
+            _ => None,
         }
     }
 }
@@ -145,6 +190,47 @@ impl ProceedOn {
             ProceedOn::Tx => "TX",
             ProceedOn::Redirect => "REDIRECT",
             ProceedOn::DispatcherReturn => "DISPATCHER_RETURN",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ABORTED" => Some(Self::Aborted),
+            "DROP" => Some(Self::Drop),
+            "PASS" => Some(Self::Pass),
+            "TX" => Some(Self::Tx),
+            "REDIRECT" => Some(Self::Redirect),
+            "DISPATCHER_RETURN" => Some(Self::DispatcherReturn),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ImagePullPolicy {
+    Always = 0,
+    IfNotPresent = 1,
+    Never = 2,
+}
+impl ImagePullPolicy {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            ImagePullPolicy::Always => "Always",
+            ImagePullPolicy::IfNotPresent => "IfNotPresent",
+            ImagePullPolicy::Never => "Never",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "Always" => Some(Self::Always),
+            "IfNotPresent" => Some(Self::IfNotPresent),
+            "Never" => Some(Self::Never),
+            _ => None,
         }
     }
 }
