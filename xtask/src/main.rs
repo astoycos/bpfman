@@ -17,17 +17,20 @@ pub struct Options {
 enum Command {
     BuildEbpf(build_ebpf::Options),
     BuildProto(protobuf::Options),
+    BuildK8sCRIProto(protobuf::Options),
     Run(run::Options),
     IntegrationTest(integration_test::Options),
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let opts = Options::parse();
 
     use Command::*;
     let ret = match opts.command {
         BuildEbpf(opts) => build_ebpf::build_ebpf(opts),
         BuildProto(opts) => protobuf::build(opts),
+        BuildK8sCRIProto(opts) => protobuf::build_k8s_cri(opts).await,
         Run(opts) => run::run(opts),
         IntegrationTest(opts) => integration_test::test(opts),
     };

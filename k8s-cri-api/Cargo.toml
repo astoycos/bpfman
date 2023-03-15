@@ -1,0 +1,11 @@
+[package]
+name = "k8s-cri-api"
+version = "1.0.0"
+edition = "2021"
+description = "gRPC bindings to the k8s CRI API"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/redhat-et/bpfd"
+
+[dependencies]
+tonic = { version = "0.8", features = ["tls"] }
+prost = "0.11"

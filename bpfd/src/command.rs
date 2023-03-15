@@ -46,6 +46,20 @@ pub(crate) enum Command {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum ImagePullPolicy {
+    Always,
+    IfNotPresent,
+    Never,
+}
+
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum Location {
+    Image(NetworkMultiAttach),
+    File (String),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum AttachType {
     NetworkMultiAttach(NetworkMultiAttach),
     SingleAttach(String),
@@ -120,6 +134,12 @@ impl std::fmt::Display for Direction {
             Direction::Egress => f.write_str("eg"),
         }
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct BytecodeImage {
+    pub(crate) url: String,
+    pub(crate) image_pull_policy: ImagePullPolicy,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

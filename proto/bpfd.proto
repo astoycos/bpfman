@@ -51,6 +51,8 @@ enum ImagePullPolicy {
 message BytecodeImage {
     string url = 1;
     ImagePullPolicy image_pull_policy = 2;
+    string username = 3;
+    string password = 4;
 }
 
 message NetworkMultiAttach {
