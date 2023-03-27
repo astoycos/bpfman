@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
-	gobpfd "github.com/redhat-et/bpfd/clients/gobpfd/v1"
 	bpfdHelpers "github.com/redhat-et/bpfd/bpfd-operator/pkg/helpers"
+	gobpfd "github.com/redhat-et/bpfd/clients/gobpfd/v1"
 	configMgmt "github.com/redhat-et/bpfd/examples/pkg/config-mgmt"
 	"google.golang.org/grpc"
 )
@@ -43,6 +43,7 @@ func main() {
 	// determine the path to the tracepoint_stats_map, whether provided via CRD
 	// or BPFD or otherwise.
 	var mapPath string
+
 	if paramData.CrdFlag { // get the map path from the API resource if on k8s
 		c := bpfdHelpers.GetClientOrDie()
 
@@ -67,6 +68,8 @@ func main() {
 
 		mapPath = fmt.Sprintf("%s/%s/tracepoint_stats_map", DefaultMapDir, paramData.Uuid)
 	}
+
+	log.Printf("Loading Bpf Map from: %s", mapPath)
 
 	// load the pinned stats map which is keeping count of kill -SIGUSR1 calls
 	opts := &ebpf.LoadPinOptions{
