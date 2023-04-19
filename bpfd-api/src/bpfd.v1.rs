@@ -118,7 +118,7 @@ pub struct ListRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListResponse {
-    #[prost(message, repeated, tag = "11")]
+    #[prost(message, repeated, tag = "10")]
     pub results: ::prost::alloc::vec::Vec<list_response::ListResult>,
 }
 /// Nested message and enum types in `ListResponse`.
@@ -128,15 +128,13 @@ pub mod list_response {
     pub struct ListResult {
         #[prost(string, tag = "1")]
         pub id: ::prost::alloc::string::String,
-        #[prost(string, tag = "2")]
-        pub name: ::prost::alloc::string::String,
-        #[prost(string, optional, tag = "5")]
+        #[prost(string, optional, tag = "2")]
         pub section_name: ::core::option::Option<::prost::alloc::string::String>,
-        #[prost(int32, tag = "6")]
+        #[prost(int32, tag = "5")]
         pub program_type: i32,
         #[prost(oneof = "list_result::Location", tags = "3, 4")]
         pub location: ::core::option::Option<list_result::Location>,
-        #[prost(oneof = "list_result::AttachInfo", tags = "7, 8, 9, 10")]
+        #[prost(oneof = "list_result::AttachInfo", tags = "6, 7, 8, 9")]
         pub attach_info: ::core::option::Option<list_result::AttachInfo>,
     }
     /// Nested message and enum types in `ListResult`.
@@ -152,13 +150,13 @@ pub mod list_response {
         #[allow(clippy::derive_partial_eq_without_eq)]
         #[derive(Clone, PartialEq, ::prost::Oneof)]
         pub enum AttachInfo {
-            #[prost(message, tag = "7")]
+            #[prost(message, tag = "6")]
             None(super::super::NoAttachInfo),
-            #[prost(message, tag = "8")]
+            #[prost(message, tag = "7")]
             XdpAttachInfo(super::super::XdpAttachInfo),
-            #[prost(message, tag = "9")]
+            #[prost(message, tag = "8")]
             TcAttachInfo(super::super::TcAttachInfo),
-            #[prost(message, tag = "10")]
+            #[prost(message, tag = "9")]
             TracepointAttachInfo(super::super::TracepointAttachInfo),
         }
     }
