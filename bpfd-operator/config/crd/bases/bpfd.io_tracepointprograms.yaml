@@ -5,20 +5,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
-  name: bpfprograms.bpfd.io
+  name: tracepointprograms.bpfd.io
 spec:
   group: bpfd.io
   names:
-    kind: BpfProgram
-    listKind: BpfProgramList
-    plural: bpfprograms
-    singular: bpfprogram
+    kind: TracepointProgram
+    listKind: TracepointProgramList
+    plural: tracepointprograms
+    singular: tracepointprogram
   scope: Cluster
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: BpfProgram is the Schema for the Bpfprograms API
+        description: BpfProgramConfig is the Schema for the Bpfprogramconfigs API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -33,33 +33,118 @@ spec:
           metadata:
             type: object
           spec:
-            description: BpfProgramSpec defines the desired state of BpfProgram
+            description: BpfProgramConfigSpec defines the desired state of BpfProgramConfig
             properties:
-              node:
-                description: Node program is loaded on
-                type: string
-              programs:
-                additionalProperties:
-                  additionalProperties:
+              bytecode:
+                description: Bytecode configures where the bpf program's bytecode
+                  should be loaded from.
+                properties:
+                  image:
+                    description: Image used to specify a bytecode container image.
+                    properties:
+                      imagepullpolicy:
+                        default: IfNotPresent
+                        description: PullPolicy describes a policy for if/when to
+                          pull a bytecode image. Defaults to IfNotPresent.
+                        enum:
+                        - Always
+                        - Never
+                        - IfNotPresent
+                        type: string
+                      imagepullsecret:
+                        description: ImagePullSecret is the name of the secret bpfd
+                          should use to get remote image repository secrets.
+                        type: string
+                      url:
+                        description: Valid container image URL used to reference a
+                          remote bytecode image.
+                        type: string
+                    required:
+                    - imagepullpolicy
+                    - url
+                    type: object
+                  path:
+                    description: Path is used to specify a bytecode object via filepath.
                     type: string
-                  type: object
-                description: 'ProgramMap is is a map with Keys: UUIDs, Values: map
-                  with Keys: Map Names, and Values: Map Pin paths'
                 type: object
-              type:
-                description: Type specifies the bpf program type
+              globaldata:
+                additionalProperties:
+                  format: byte
+                  type: string
+                description: GlobalData allows the user to to set global variables
+                  when the program is loaded with an array of raw bytes. This is a
+                  very low level primitive. The caller is responsible for formatting
+                  the byte string appropriately considering such things as size, endianness,
+                  alignment and packing of data structures.
+                type: object
+              name:
+                description: Name refers to the name of the tracepoint to attach to
+                type: string
+              nodeselector:
+                description: NodeSelector allows the user to specify which nodes to
+                  deploy the bpf program to.  This field must be specified, to select
+                  all nodes use standard metav1.LabelSelector semantics and make it
+                  empty.
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: A label selector requirement is a selector that
+                        contains values, a key, and an operator that relates the key
+                        and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: operator represents a key's relationship to
+                            a set of values. Valid operators are In, NotIn, Exists
+                            and DoesNotExist.
+                          type: string
+                        values:
+                          description: values is an array of string values. If the
+                            operator is In or NotIn, the values array must be non-empty.
+                            If the operator is Exists or DoesNotExist, the values
+                            array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: matchLabels is a map of {key,value} pairs. A single
+                      {key,value} in the matchLabels map is equivalent to an element
+                      of matchExpressions, whose key field is "key", the operator
+                      is "In", and the values array contains only "value". The requirements
+                      are ANDed.
+                    type: object
+                type: object
+                x-kubernetes-map-type: atomic
+              sectionname:
+                description: SectionName is the the section name described in the
+                  bpf Program
                 type: string
             required:
-            - programs
+            - bytecode
+            - name
+            - nodeselector
+            - sectionname
             type: object
           status:
-            description: BpfProgramStatus defines the observed state of BpfProgram
-              TODO Make these a fixed set of metav1.Condition.types and metav1.Condition.reasons
+            description: TracepointProgramStatus defines the observed state of TracepointProgram
             properties:
               conditions:
-                description: 'Conditions houses the updates regarding the actual implementation
-                  of the bpf program on the node Known .status.conditions.type are:
-                  "Available", "Progressing", and "Degraded"'
+                description: 'Conditions houses the global cluster state for the BpfProgram
+                  Known .status.conditions.type are: "Available", "Progressing", and
+                  "Degraded"'
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
