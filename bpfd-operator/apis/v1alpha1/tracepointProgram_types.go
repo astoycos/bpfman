@@ -20,7 +20,8 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
+)	
+
 
 // +genclient
 // +genclient:nonNamespaced
@@ -28,36 +29,30 @@ import (
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:scope=Cluster
 
-// BpfProgram is the Schema for the Bpfprograms API
-type BpfProgram struct {
+// BpfProgramConfig is the Schema for the Bpfprogramconfigs API
+type TracepointProgram struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec BpfProgramSpec `json:"spec"`
+	Spec TracepointProgramSpec `json:"spec"`
 	// +optional
-	Status BpfProgramStatus `json:"status,omitempty"`
+	Status TracepointProgramStatus `json:"status,omitempty"`
 }
 
-// BpfProgramSpec defines the desired state of BpfProgram
-type BpfProgramSpec struct {
-	// Node program is loaded on
-	// +optional
-	Node string `json:"node,omitempty"`
+// +kubebuilder:validation:Enum=aborted;drop;pass;tx;redirect;dispatcher_return
+type TracepointProceedOnValue string
 
-	// Type specifies the bpf program type
-	// +optional
-	Type string `json:"type,omitempty"`
-
-	// ProgramMap is is a map with Keys: UUIDs, Values: map with Keys: Map Names,
-	// and Values: Map Pin paths
-	Programs map[string]map[string]string `json:"programs"`
+// BpfProgramConfigSpec defines the desired state of BpfProgramConfig
+type TracepointProgramSpec struct {
+	BpfProgramCommon `json:",inline"`
+	
+	// Name refers to the name of the tracepoint to attach to
+	Name string `json:"name"`
 }
 
-// BpfProgramStatus defines the observed state of BpfProgram
-// TODO Make these a fixed set of metav1.Condition.types and metav1.Condition.reasons
-type BpfProgramStatus struct {
-	// Conditions houses the updates regarding the actual implementation of
-	// the bpf program on the node
+// TracepointProgramStatus defines the observed state of TracepointProgram
+type TracepointProgramStatus struct {
+	// Conditions houses the global cluster state for the BpfProgram
 	// Known .status.conditions.type are: "Available", "Progressing", and "Degraded"
 	// +patchMergeKey=type
 	// +patchStrategy=merge
@@ -67,10 +62,9 @@ type BpfProgramStatus struct {
 }
 
 //+kubebuilder:object:root=true
-
-// BpfProgramList contains a list of BpfProgram
-type BpfProgramList struct {
+// TracepointProgramList contains a list of TracepointPrograms
+type TracepointProgramList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []BpfProgram `json:"items"`
+	Items           []TracepointProgram `json:"items"`
 }
