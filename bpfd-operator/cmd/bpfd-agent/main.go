@@ -36,7 +36,7 @@ import (
 
 	bpfdiov1alpha1 "github.com/redhat-et/bpfd/bpfd-operator/apis/v1alpha1"
 	bpfdagent "github.com/redhat-et/bpfd/bpfd-operator/controllers/bpfd-agent"
-	"github.com/redhat-et/bpfd/bpfd-operator/internal"
+	"github.com/redhat-et/bpfd/bpfd-operator/internal/tls"
 	gobpfd "github.com/redhat-et/bpfd/clients/gobpfd/v1"
 	v1 "k8s.io/api/core/v1"
 
@@ -99,17 +99,19 @@ func main() {
 	}
 
 	// Setup bpfd Client
-	configFileData := internal.LoadConfig()
+	configFileData := tls.LoadConfig()
 
-	creds, err := internal.LoadTLSCredentials(configFileData.Tls)
+	setupLog.V(1).WithValues("configFileData", configFileData)
+
+	creds, err := tls.LoadTLSCredentials(configFileData.Tls)
 	if err != nil {
 		setupLog.Error(err, "Failed to generate credentials for new client")
 		os.Exit(1)
 	}
 
 	// Set up a connection to bpfd, block until bpfd is up.
-	setupLog.Info("Waiting for active connection to bpfd")
 	addr := fmt.Sprintf("localhost:%d", configFileData.Grpc.Endpoint.Port)
+	setupLog.WithValues("addr", addr).Info("Waiting for active connection to bpfd at %s")
 	conn, err := grpc.DialContext(context.Background(), addr, grpc.WithTransportCredentials(creds), grpc.WithBlock())
 	if err != nil {
 		setupLog.Error(err, "unable to connect to bpfd")
@@ -130,15 +132,33 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&bpfdagent.BpfProgramReconciler{
+	common := bpfdagent.ReconcilerCommon{
 		Client:     mgr.GetClient(),
 		Scheme:     mgr.GetScheme(),
 		GrpcConn:   conn,
 		BpfdClient: gobpfd.NewLoaderClient(conn),
 		Namespace:  namespace,
 		NodeName:   nodeName,
+	}
+
+	if err = (&bpfdagent.XdpProgramReconciler{
+		ReconcilerCommon: common,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "BpfProgram")
+		setupLog.Error(err, "unable to create xdpProgram controller", "controller", "BpfProgram")
+		os.Exit(1)
+	}
+
+	if err = (&bpfdagent.TcProgramReconciler{
+		ReconcilerCommon: common,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create tcProgram controller", "controller", "BpfProgram")
+		os.Exit(1)
+	}
+
+	if err = (&bpfdagent.TracePointProgramReconciler{
+		ReconcilerCommon: common,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create tracepointProgram controller", "controller", "BpfProgram")
 		os.Exit(1)
 	}
 
