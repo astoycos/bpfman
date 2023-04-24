@@ -68,14 +68,12 @@ spec:
                     type: string
                 type: object
               direction:
-                default: NONE
                 description: Direction specifies the direction of traffic the bpfprogram
                   should attach to for a given network device, this field should only
                   be set for programs of type TC.
                 enum:
-                - NONE
-                - INGRESS
-                - EGRESS
+                - ingress
+                - egress
                 type: string
               globaldata:
                 additionalProperties:
@@ -185,6 +183,7 @@ spec:
                 type: string
             required:
             - bytecode
+            - direction
             - interfaceselector
             - nodeselector
             - priority
