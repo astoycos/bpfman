@@ -20,8 +20,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)	
-
+)
 
 // +genclient
 // +genclient:nonNamespaced
@@ -45,7 +44,7 @@ type XdpProceedOnValue string
 // BpfProgramConfigSpec defines the desired state of BpfProgramConfig
 type XdpProgramSpec struct {
 	BpfProgramCommon `json:",inline"`
-	
+
 	// Selector to determine the network interface (or interfaces)
 	InterfaceSelector InterfaceSelector `json:"interfaceselector"`
 
@@ -75,7 +74,7 @@ type XdpProgramStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 // XdpProgramList contains a list of XdpPrograms
 type XdpProgramList struct {
 	metav1.TypeMeta `json:",inline"`

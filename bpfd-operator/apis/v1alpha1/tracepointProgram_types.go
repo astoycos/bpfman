@@ -20,8 +20,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)	
-
+)
 
 // +genclient
 // +genclient:nonNamespaced
@@ -45,7 +44,7 @@ type TracepointProceedOnValue string
 // BpfProgramConfigSpec defines the desired state of BpfProgramConfig
 type TracepointProgramSpec struct {
 	BpfProgramCommon `json:",inline"`
-	
+
 	// Name refers to the name of the tracepoint to attach to
 	Name string `json:"name"`
 }
@@ -61,7 +60,7 @@ type TracepointProgramStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 // TracepointProgramList contains a list of TracepointPrograms
 type TracepointProgramList struct {
 	metav1.TypeMeta `json:",inline"`

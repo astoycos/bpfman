@@ -49,8 +49,8 @@ type BpfProgramCommon struct {
 	ByteCode BytecodeSelector `json:"bytecode"`
 
 	// GlobalData allows the user to to set global variables when the program is loaded
-	// with an array of raw bytes. This is a very low level primitive. The caller 
-	// is responsible for formatting the byte string appropriately considering 
+	// with an array of raw bytes. This is a very low level primitive. The caller
+	// is responsible for formatting the byte string appropriately considering
 	// such things as size, endianness, alignment and packing of data structures.
 	// +optional
 	GlobalData map[string][]byte `json:"globaldata,omitempty"`

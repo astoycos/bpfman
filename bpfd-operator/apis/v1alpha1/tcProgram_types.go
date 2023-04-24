@@ -20,8 +20,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)	
-
+)
 
 // +genclient
 // +genclient:nonNamespaced
@@ -45,7 +44,7 @@ type TcProceedOnValue string
 // BpfProgramConfigSpec defines the desired state of BpfProgramConfig
 type TcProgramSpec struct {
 	BpfProgramCommon `json:",inline"`
-	
+
 	// Selector to determine the network interface (or interfaces)
 	InterfaceSelector InterfaceSelector `json:"interfaceselector"`
 
@@ -59,9 +58,7 @@ type TcProgramSpec struct {
 	// Direction specifies the direction of traffic the bpfprogram should
 	// attach to for a given network device, this field should only be
 	// set for programs of type TC.
-	// +kubebuilder:validation:Enum=NONE;INGRESS;EGRESS
-	// +kubebuilder:default=NONE
-	// +optional
+	// +kubebuilder:validation:Enum=ingress;egress
 	Direction string `json:"direction"`
 
 	// ProceedOn allows the user to call other programs in chain on this exit code.
@@ -83,7 +80,7 @@ type TcProgramStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 // TcProgramList contains a list of TcPrograms
 type TcProgramList struct {
 	metav1.TypeMeta `json:",inline"`
