@@ -19,6 +19,7 @@ package bpfdagent
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -42,11 +43,13 @@ import (
 
 //+kubebuilder:rbac:groups=bpfd.io,resources=tcprograms,verbs=get;list;watch
 
-// BpfProgramReconciler reconciles a BpfProgram object
+// BpfProgramReconciler reconciles a tcProgram object by creating multiple
+// bpfProgram objects and managing bpfd.
 type TcProgramReconciler struct {
 	ReconcilerCommon
 	currentTcProgram *bpfdiov1alpha1.TcProgram
 	ourNode          *v1.Node
+	interfaces 	 []string
 }
 
 func (r *TcProgramReconciler) getRecCommon() *ReconcilerCommon {
@@ -114,12 +117,28 @@ func (r *TcProgramReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+func (r *TcProgramReconciler) createBpfPrograms(ctx context.Context) (bool, error) {
+	for _, iface := range r.interfaces { 
+		bpfProgramName := fmt.Sprintf("%s-%s", r.currentTcProgram.Name, iface)
+
+		_, exists := r.bpfPrograms[bpfProgramName] 
+		if !exists {
+			err := r.createBpfProgram(ctx, bpfProgramName, r.getFinalizer(), r.currentTcProgram, r.getRecType())
+			if err != nil {
+				return false, fmt.Errorf("failed to create BpfProgram %s: %v", bpfProgramName, err)
+			}
+		}
+	}
+	
+	return true, nil
+}
+
 func (r *TcProgramReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Initialize node and current program
 	r.currentTcProgram = &bpfdiov1alpha1.TcProgram{}
 	r.ourNode = &v1.Node{}
-
 	r.Logger = log.FromContext(ctx)
+	r.bpfPrograms = make(map[string]*bpfdiov1alpha1.BpfProgram)
 
 	// Lookup K8s node object for this bpfd-agent This should always succeed
 	if err := r.Get(ctx, types.NamespacedName{Namespace: v1.NamespaceAll, Name: r.NodeName}, r.ourNode); err != nil {
@@ -151,6 +170,12 @@ func (r *TcProgramReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// note: This doesn't necessarily result in any extra grpc calls to bpfd
 	for _, tcProgram := range TcPrograms.Items {
 		r.Logger.Info("bpfd-agent is reconciling", "bpfProgramConfig", tcProgram.Name)
+		r.interfaces, err = getInterfaces(&r.currentTcProgram.Spec.InterfaceSelector, r.ourNode)
+		if err != nil {
+			r.Logger.Error(err, "failed to get interfaces for TcProgram")
+			return ctrl.Result{Requeue: true, RequeueAfter: retryDurationAgent}, nil
+		}
+		
 		r.currentTcProgram = &tcProgram
 		retry, err := reconcileProgram(ctx, r, r.currentTcProgram, &r.currentTcProgram.Spec.BpfProgramCommon, r.ourNode, programMap)
 		if err != nil {
@@ -165,114 +190,106 @@ func (r *TcProgramReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 // reconcileBpfdPrograms ONLY reconciles the bpfd state for a single BpfProgram.
 // It does interact with the k8s API in any way.
 func (r *TcProgramReconciler) reconcileBpfdPrograms(ctx context.Context,
-	existingBpfPrograms map[string]*gobpfd.ListResponse_ListResult,
+	existingBpfProgram *gobpfd.ListResponse_ListResult,
 	bytecode interface{},
+	bpfProgram *bpfdiov1alpha1.BpfProgram,
 	isNodeSelected bool,
 	isBeingDeleted bool) (bpfProgramConditionType, error) {
 
-	TcProgram := r.currentTcProgram
-
-	ifaces, err := getInterfaces(&TcProgram.Spec.InterfaceSelector, r.ourNode)
-	if err != nil {
-		return BpfProgCondNotLoaded, fmt.Errorf("failed to get interfaces for TcProgram %s: %v", TcProgram.Name, err)
-	}
-
-	r.Logger.V(1).Info("Existing bpfProgramEntries", "ExistingEntries", r.bpfProgram.Spec.Programs)
-	bpfProgramEntries := make(map[string]map[string]string)
+	r.Logger.V(1).Info("Existing bpfProgramMaps", "ExistingMaps", bpfProgram.Spec.Maps)
+	bpfProgramMaps := make(map[string]string)
 	// DeepCopy the existing programs
-	for k, v := range r.bpfProgram.Spec.Programs {
-		bpfProgramEntries[k] = v
+	for k, v := range bpfProgram.Spec.Maps {
+		bpfProgramMaps[k] = v
 	}
 
-	for _, iface := range ifaces {
-		loadRequest := &gobpfd.LoadRequest{}
-		id := uuid.New().String()
-		loadRequest.Common = bpfdagentinternal.BuildBpfdCommon(bytecode, TcProgram.Spec.SectionName, internal.Tc, id, TcProgram.Spec.GlobalData)
+	iface := strings.Split(bpfProgram.Name, "-")[1]
 
-		loadRequest.AttachInfo = &gobpfd.LoadRequest_TcAttachInfo{
-			TcAttachInfo: &gobpfd.TCAttachInfo{
-				Priority:  TcProgram.Spec.Priority,
-				Iface:     iface,
-				Direction: TcProgram.Spec.Direction,
-				ProceedOn: tcProceedOnToInt(TcProgram.Spec.ProceedOn),
-			},
+	loadRequest := &gobpfd.LoadRequest{}
+	id := bpfProgram.UID
+	loadRequest.Common = bpfdagentinternal.BuildBpfdCommon(bytecode, r.currentTcProgram.Spec.SectionName, internal.Tc, id, r.currentTcProgram.Spec.GlobalData)
+
+	loadRequest.AttachInfo = &gobpfd.LoadRequest_TcAttachInfo{
+		TcAttachInfo: &gobpfd.TCAttachInfo{
+			Priority:  r.currentTcProgram.Spec.Priority,
+			Iface:     iface,
+			Direction: r.currentTcProgram.Spec.Direction,
+			ProceedOn: tcProceedOnToInt(r.currentTcProgram.Spec.ProceedOn),
+		},
+	}
+
+	if bpfProgram.Spec.Maps == nil {
+		r.Logger.V(1).Info("TcProgram doesn't exist on node")
+
+		// If BpfProgramConfig is being deleted just break out and remove finalizer
+		if isBeingDeleted {
+			return BpfProgCondNotLoaded, nil
 		}
 
-		existingProgram, doesProgramExist := existingBpfPrograms[id]
-		if !doesProgramExist {
-			r.Logger.V(1).Info("TcProgram doesn't exist on node")
+		// Make sure if we're not selected just exit
+		if !isNodeSelected {
+			return BpfProgCondNotSelected, nil
+		}
 
-			// If BpfProgramConfig is being deleted just break out and remove finalizer
-			if isBeingDeleted {
-				break
-			}
+		// otherwise load it
+		bpfProgramMaps, err := bpfdagentinternal.LoadBpfdProgram(ctx, r.BpfdClient, loadRequest)
+		if err != nil {
+			r.Logger.Error(err, "Failed to load TcProgram")
+			return BpfProgCondNotLoaded, err
+		}
 
-			// Make sure if we're not selected just exit
-			if !isNodeSelected {
-				break
-			}
+		bpfProgramMaps = bpfProgramMaps
+		r.Logger.V(1).WithValues("UUID", id, "ProgramEntry", bpfProgramMaps).Info("Loaded TcProgram on Node")
 
-			// otherwise load it
-			bpfProgramEntry, err := bpfdagentinternal.LoadBpfdProgram(ctx, r.BpfdClient, loadRequest)
+		// Move to next program
+		r.expectedMaps = bpfProgramMaps
+	}
+
+	// BpfProgram exists but either BpfProgramConfig is being deleted or node is no
+	// longer selected....unload program
+	if !r.currentTcProgram.DeletionTimestamp.IsZero() || !isNodeSelected {
+		r.Logger.V(1).Info("TcProgram exists on Node but is scheduled for deletion or node is no longer selected", "isDeleted", !r.currentTcProgram.DeletionTimestamp.IsZero(),
+			"isSelected", isNodeSelected)
+		if err := bpfdagentinternal.UnloadBpfdProgram(ctx, r.BpfdClient, id); err != nil {
+			r.Logger.Error(err, "Failed to unload TcProgram")
+			return BpfProgCondLoaded, err
+		}
+
+		// continue to next program
+		return BpfProgCondNotSelected, nil
+	}
+
+	r.Logger.V(1).WithValues("expectedProgram", loadRequest).WithValues("existingProgram", existingProgram).Info("StateMatch")
+	// BpfProgram exists but is not correct state, unload and recreate
+	if !bpfdagentinternal.DoesProgExist(existingBpfProgram, loadRequest) {
+		r.Logger.V(1).Info("TcProgram is in wrong state, unloading and reloading")
+		if err := bpfdagentinternal.UnloadBpfdProgram(ctx, r.BpfdClient, id); err != nil {
+			r.Logger.Error(err, "Failed to unload TcProgram")
+			return BpfProgCondNotUnloaded, err
+		}
+
+		bpfProgramMaps, err := bpfdagentinternal.LoadBpfdProgram(ctx, r.BpfdClient, loadRequest)
+		if err != nil {
+			r.Logger.Error(err, "Failed to load TcProgram")
+			return BpfProgCondNotLoaded, err
+		}
+
+		r.Logger.V(1).WithValues("UUID", id, "ProgramEntry", bpfProgramEntry).Info("ReLoaded TcProgram on Node")
+		bpfProgramEntries[id] = bpfProgramEntry
+	} else {
+		// Program already exists, but bpfProgram K8s Object might not be up to date
+		r.Logger.V(1).Info("TcProgram already loaded on Node")
+		if _, ok := bpfProgram.Spec.Programs[id]; !ok {
+			maps, err := bpfdagentinternal.GetMapsForUUID(id)
 			if err != nil {
-				r.Logger.Error(err, "Failed to load TcProgram")
+				r.Logger.Error(err, "failed to get bpfProgram's Maps")
 				return BpfProgCondNotLoaded, err
 			}
 
-			bpfProgramEntries[id] = bpfProgramEntry
-			r.Logger.V(1).WithValues("UUID", id, "ProgramEntry", bpfProgramEntries).Info("Loaded TcProgram on Node")
-
-			// Move to next program
-			continue
-		}
-
-		// BpfProgram exists but either BpfProgramConfig is being deleted or node is no
-		// longer selected....unload program
-		if !TcProgram.DeletionTimestamp.IsZero() || !isNodeSelected {
-			r.Logger.V(1).Info("TcProgram exists on Node but is scheduled for deletion or node is no longer selected", "isDeleted", !TcProgram.DeletionTimestamp.IsZero(),
-				"isSelected", isNodeSelected)
-			if err := bpfdagentinternal.UnloadBpfdProgram(ctx, r.BpfdClient, id); err != nil {
-				r.Logger.Error(err, "Failed to unload TcProgram")
-				return BpfProgCondLoaded, err
-			}
-			delete(bpfProgramEntries, id)
-
-			// continue to next program
-			continue
-		}
-
-		r.Logger.V(1).WithValues("expectedProgram", loadRequest).WithValues("existingProgram", existingProgram).Info("StateMatch")
-		// BpfProgram exists but is not correct state, unload and recreate
-		if !bpfdagentinternal.DoesProgExist(existingProgram, loadRequest) {
-			r.Logger.V(1).Info("TcProgram is in wrong state, unloading and reloading")
-			if err := bpfdagentinternal.UnloadBpfdProgram(ctx, r.BpfdClient, id); err != nil {
-				r.Logger.Error(err, "Failed to unload TcProgram")
-				return BpfProgCondNotUnloaded, err
-			}
-
-			bpfProgramEntry, err := bpfdagentinternal.LoadBpfdProgram(ctx, r.BpfdClient, loadRequest)
-			if err != nil {
-				r.Logger.Error(err, "Failed to load TcProgram")
-				return BpfProgCondNotLoaded, err
-			}
-
-			r.Logger.V(1).WithValues("UUID", id, "ProgramEntry", bpfProgramEntry).Info("ReLoaded TcProgram on Node")
-			bpfProgramEntries[id] = bpfProgramEntry
+			bpfProgramEntries[id] = maps
 		} else {
-			// Program already exists, but bpfProgram K8s Object might not be up to date
-			r.Logger.V(1).Info("TcProgram already loaded on Node")
-			if _, ok := r.bpfProgram.Spec.Programs[id]; !ok {
-				maps, err := bpfdagentinternal.GetMapsForUUID(id)
-				if err != nil {
-					r.Logger.Error(err, "failed to get bpfProgram's Maps")
-					return BpfProgCondNotLoaded, err
-				}
-
-				bpfProgramEntries[id] = maps
-			} else {
-				// Program exists and bpfProgram K8s Object is up to date
-				r.Logger.V(1).Info("Ignoring Object Change nothing to do in bpfd")
-			}
+			// Program exists and bpfProgram K8s Object is up to date
+			r.Logger.V(1).Info("Ignoring Object Change nothing to do in bpfd")
 		}
 	}
 
