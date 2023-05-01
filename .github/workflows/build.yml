@@ -26,6 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: fedora:36
+    env:
+      GOPATH: ${{ github.workspace }}
     steps:
       ## Install perl due to https://github.com/openssl/openssl/issues/13761
       - name: Install deps
