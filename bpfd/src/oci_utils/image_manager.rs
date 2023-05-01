@@ -266,7 +266,12 @@ impl BytecodeImage {
 }
 
 fn get_image_content_dir(image_url: Reference) -> PathBuf {
-    let repo = image_url.repository();
+    let registry_and_repo = if image_url.registry() == "" {
+        image_url.repository().to_string()
+    } else {
+        format!("{}/{}", image_url.registry(), image_url.repository())
+    };
+
     let tag = match image_url.tag() {
         Some(t) => t,
         _ => image_url.digest().unwrap(),
@@ -274,7 +279,7 @@ fn get_image_content_dir(image_url: Reference) -> PathBuf {
 
     Path::new(&format!(
         "{}/{}/{}",
-        BYTECODE_IMAGE_CONTENT_STORE, repo, tag
+        BYTECODE_IMAGE_CONTENT_STORE, registry_and_repo, tag
     ))
     .to_owned()
 }
