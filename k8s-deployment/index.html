@@ -1,0 +1,1355 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      <link rel="icon" href="../img/bpd_icon.svg">
+      <meta name="generator" content="mkdocs-1.3.0, mkdocs-material-8.3.6">
+    
+    
+      
+        <title>How to Deploy bpfd on Kubernetes - bpfd</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.4a0965b7.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.cbb835fc.min.css">
+        
+      
+      
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="red" data-md-color-accent="">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#how-to-deploy-bpfd-on-kubernetes" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-component="outdated" hidden>
+        <aside class="md-banner md-banner--warning">
+          
+        </aside>
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="bpfd" class="md-header__button md-logo" aria-label="bpfd" data-md-component="logo">
+      
+  <img src="../img/bpfd_icon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            bpfd
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              How to Deploy bpfd on Kubernetes
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      <form class="md-header__option" data-md-component="palette">
+        
+          
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="red" data-md-color-accent=""  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+          
+            <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3 3.19.09m3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95 2.06.05m-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31Z"/></svg>
+            </label>
+          
+        
+          
+          
+          <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="red" data-md-color-accent=""  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_2">
+          
+            <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5c-.84 0-1.65.15-2.39.42L12 2M3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29L3.34 7m.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14L3.36 17M20.65 7l-1.77 3.79a7.023 7.023 0 0 0-2.38-4.15l4.15.36m-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29L20.64 17M12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44L12 22Z"/></svg>
+            </label>
+          
+        
+      </form>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/bpfd-dev/bpfd" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-tabs__inner md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+    
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link md-tabs__link--active">
+        Home
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="bpfd" class="md-nav__button md-logo" aria-label="bpfd" data-md-component="logo">
+      
+  <img src="../img/bpfd_icon.svg" alt="logo">
+
+    </a>
+    bpfd
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/bpfd-dev/bpfd" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_1" type="checkbox" id="__nav_1" checked>
+      
+      
+      
+        
+          
+            
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+      
+        
+        
+        <div class="md-nav__link md-nav__link--index ">
+          <a href="..">Home</a>
+          
+            <label for="__nav_1">
+              <span class="md-nav__icon md-icon"></span>
+            </label>
+          
+        </div>
+      
+      <nav class="md-nav" aria-label="Home" data-md-level="1">
+        <label class="md-nav__title" for="__nav_1">
+          <span class="md-nav__icon md-icon"></span>
+          Home
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial/" class="md-nav__link">
+        Tutorial
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        Configuration
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../building-bpfd/" class="md-nav__link">
+        Setup and Building bpfd
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../example-bpf/" class="md-nav__link">
+        Example BPF Programs
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../example-bpf-local/" class="md-nav__link">
+        Deploying Example BPF Programs On Local Host
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../example-bpf-k8s/" class="md-nav__link">
+        Deploying Example BPF Programs On Kubernetes
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          How to Deploy bpfd on Kubernetes
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        How to Deploy bpfd on Kubernetes
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#bpfd-operator-overview" class="md-nav__link">
+    bpfd-operator Overview
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment-options" class="md-nav__link">
+    Deployment Options
+  </a>
+  
+    <nav class="md-nav" aria-label="Deployment Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#quick-start-with-kind-and-the-bpfd-operator" class="md-nav__link">
+    Quick Start with kind and the bpfd-operator
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Start with kind and the bpfd-operator">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pre-requsites" class="md-nav__link">
+    Pre-requsites
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deploy-locally-via-kind" class="md-nav__link">
+    Deploy locally via KIND
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deploy-to-openshift-cluster" class="md-nav__link">
+    Deploy To Openshift Cluster
+  </a>
+  
+    <nav class="md-nav" aria-label="Deploy To Openshift Cluster">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-manually-with-kustomize" class="md-nav__link">
+    1. Manually with Kustomize
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-via-the-olm-bundle" class="md-nav__link">
+    2. Via the OLM bundle
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-the-installation" class="md-nav__link">
+    Verify the installation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-types-overview" class="md-nav__link">
+    API Types Overview
+  </a>
+  
+    <nav class="md-nav" aria-label="API Types Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bpfprogramconfig" class="md-nav__link">
+    BpfProgramConfig
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bpfprogram" class="md-nav__link">
+    BpfProgram
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kubectl-plugins" class="md-nav__link">
+    Kubectl Plugins
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#controllers" class="md-nav__link">
+    Controllers
+  </a>
+  
+    <nav class="md-nav" aria-label="Controllers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bpfd-agent" class="md-nav__link">
+    bpfd-agent
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bpfd-operator" class="md-nav__link">
+    bpfd-operator
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#more-useful-commands" class="md-nav__link">
+    More useful commands
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reinstall-crds" class="md-nav__link">
+    Reinstall CRDs
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploy-controller" class="md-nav__link">
+    Deploy controller
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#undeploy-controller" class="md-nav__link">
+    Undeploy controller
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modifying-the-api-definitions" class="md-nav__link">
+    Modifying the API definitions
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../image-build/" class="md-nav__link">
+        BPFD Container Images
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../linux-capabilities/" class="md-nav__link">
+        Linux Capabilities
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../shipping-bytecode/" class="md-nav__link">
+        EBPF Bytecode Image Specifications
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#bpfd-operator-overview" class="md-nav__link">
+    bpfd-operator Overview
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment-options" class="md-nav__link">
+    Deployment Options
+  </a>
+  
+    <nav class="md-nav" aria-label="Deployment Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#quick-start-with-kind-and-the-bpfd-operator" class="md-nav__link">
+    Quick Start with kind and the bpfd-operator
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Start with kind and the bpfd-operator">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pre-requsites" class="md-nav__link">
+    Pre-requsites
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deploy-locally-via-kind" class="md-nav__link">
+    Deploy locally via KIND
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deploy-to-openshift-cluster" class="md-nav__link">
+    Deploy To Openshift Cluster
+  </a>
+  
+    <nav class="md-nav" aria-label="Deploy To Openshift Cluster">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-manually-with-kustomize" class="md-nav__link">
+    1. Manually with Kustomize
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-via-the-olm-bundle" class="md-nav__link">
+    2. Via the OLM bundle
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-the-installation" class="md-nav__link">
+    Verify the installation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-types-overview" class="md-nav__link">
+    API Types Overview
+  </a>
+  
+    <nav class="md-nav" aria-label="API Types Overview">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bpfprogramconfig" class="md-nav__link">
+    BpfProgramConfig
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bpfprogram" class="md-nav__link">
+    BpfProgram
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kubectl-plugins" class="md-nav__link">
+    Kubectl Plugins
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#controllers" class="md-nav__link">
+    Controllers
+  </a>
+  
+    <nav class="md-nav" aria-label="Controllers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#bpfd-agent" class="md-nav__link">
+    bpfd-agent
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bpfd-operator" class="md-nav__link">
+    bpfd-operator
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#more-useful-commands" class="md-nav__link">
+    More useful commands
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reinstall-crds" class="md-nav__link">
+    Reinstall CRDs
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploy-controller" class="md-nav__link">
+    Deploy controller
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#undeploy-controller" class="md-nav__link">
+    Undeploy controller
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modifying-the-api-definitions" class="md-nav__link">
+    Modifying the API definitions
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          <div class="md-content" data-md-component="content">
+            <article class="md-content__inner md-typeset">
+              
+                
+  <a href="https://github.com/bpfd-dev/bpfd/edit/main/docs/k8s-deployment.md" title="Edit this page" class="md-content__button md-icon">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25Z"/></svg>
+  </a>
+
+
+
+<h1 id="how-to-deploy-bpfd-on-kubernetes">How to Deploy bpfd on Kubernetes</h1>
+<p>One of the key use cases for bpfd is to support the deployment of BPF programs
+in Kubernetes clusters.  The simplest way to do this is to use the
+bpfd-operator.  In this document, we provide an overview of using the
+bpfd-operator as well as the manual steps required to use bpfd with Kubernetes,
+in general, and OpenShift, in particular.</p>
+<h2 id="bpfd-operator-overview">bpfd-operator Overview</h2>
+<p>The Bpfd-Operator can be used to deploy and manage bpfd within a Kubernetes cluster.</p>
+<p><img alt="bpfd on K8s" src="../img/bpfd-on-k8s.jpg" /></p>
+<p>The <a href="https://github.com/bpfd-dev/bpfd/tree/main/bpfd-operator">bpfd-operator
+repository</a> houses
+two main processes, the <code>bpfd-agent</code> and the <code>bpfd-operator</code> along with CRD api
+definitions for <code>BpfProgram</code> and <code>BpfProgramConfig</code> Objects. In the below
+sections we'll dive a bit deeper into the API and functionality of both
+processes.</p>
+<h2 id="deployment-options">Deployment Options</h2>
+<p>Choose one of the install options described below, and then go to <a href="#verify-the-installation">Verify the
+installation</a> below to make sure it worked.</p>
+<h3 id="quick-start-with-kind-and-the-bpfd-operator">Quick Start with kind and the bpfd-operator</h3>
+<p>Using kind with the bpfd-operator is an easy way to spin up a local kind cluster
+and deploy bpfd.</p>
+<h4 id="pre-requsites">Pre-requsites</h4>
+<ul>
+<li>Install <code>git</code>, <code>make</code>, and <code>go</code></li>
+<li>Install <a href="https://docs.docker.com/engine/install/">Docker</a> for your platform.</li>
+<li>We also recommend that you follow the <a href="https://docs.docker.com/engine/install/linux-postinstall/">Post-installation steps for
+    Linux</a> to allow
+    your user to run Docker commands without root priviledges.</li>
+<li>Install <a href="https://kubernetes.io/docs/reference/kubectl/kubectl/">kubctl</a> and
+  <a href="https://kind.sigs.k8s.io/">kind</a></li>
+<li><a href="https://kubernetes.io/docs/tasks/tools/">Installation Instructions</a></li>
+<li>clone the bpfd repository</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git clone https://github.com/bpfd-dev/bpfd.git
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span> bpfd/bpfd-operator
+</code></pre></div>
+<p>The bpfd-operator was built utilizing some great tooling provided by the
+<a href="https://sdk.operatorframework.io/">operator-sdk library</a>. A great first step in
+understanding some of the functionality can be to cd into the
+<code>bpfd/bpfd-operator</code> directory and run <code>make help</code>.</p>
+<h4 id="deploy-locally-via-kind">Deploy locally via KIND</h4>
+<p>After reviewing the possible make targets it's quick and easy to get bpfd
+deployed locally on your system via a <a href="https://kind.sigs.k8s.io/">KIND cluster</a>
+with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>make run-on-kind
+</code></pre></div>
+<blockquote>
+<p><strong><em>NOTE:</em></strong>  You will need a spare 20G in your root partition to run <code>make
+run-on-kind</code>, and it will take a while the first time you run it.</p>
+</blockquote>
+<p>By default local image builds will be used for the kind deployment, however, the
+container images used for <code>bpfd</code>,<code>bpfd-agent</code>, and <code>bpfd-operator</code> can also be
+configured as follows.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">BPFD_IMG</span><span class="o">=</span>&lt;your/image/url&gt; <span class="nv">BPFD_AGENT_IMG</span><span class="o">=</span>&lt;your/image/url&gt; <span class="nv">BPFD_OPERATOR_IMG</span><span class="o">=</span>&lt;your/image/url&gt; make run-on-kind
+</code></pre></div>
+<p>To push and test out any local changes simply run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>make kind-reload-images
+</code></pre></div>
+<p>To tear down the kind cluster, run:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>kind delete cluster -n bpfd-deployment
+</code></pre></div></p>
+<p>The default name of the created cluster is <code>bpfd-deployment</code>.
+To retrieve all the created kind clusters, use 
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kind get clusters
+</code></pre></div></p>
+<h3 id="deploy-to-openshift-cluster">Deploy To Openshift Cluster</h3>
+<p>First install cert-manager (if not already deployed) to the cluster with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>make deploy-cert-manager
+</code></pre></div>
+<p>Then deploy the operator with one of the following two options:</p>
+<h4 id="1-manually-with-kustomize">1. Manually with Kustomize</h4>
+<p>Then to install manually with Kustomize and raw manifests simply run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>make deploy-openshift
+</code></pre></div>
+<p>Which can then be cleaned up with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>make undeploy-openshift
+</code></pre></div>
+<h4 id="2-via-the-olm-bundle">2. Via the OLM bundle</h4>
+<p>The bpfd-operator can also be installed via it's <a href="https://www.redhat.com/en/blog/deploying-operators-olm-bundles">OLM
+bundle</a>.</p>
+<p>First setup the namespace and certificates for the operator with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>oc apply -f ./hack/ocp-scc-hacks.yaml
+</code></pre></div>
+<p>Then use <code>operator-sdk</code> to install the bundle like so:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>operator-sdk run bundle quay.io/bpfd/bpfd-operator-bundle:latest --namespace openshift-bpfd
+</code></pre></div>
+<p>To clean everything up run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>operator-sdk cleanup bpfd-operator
+</code></pre></div>
+<p>followed by</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>oc delete -f ./hack/ocp-scc-hacks.yaml
+</code></pre></div>
+<h2 id="verify-the-installation">Verify the installation</h2>
+<blockquote>
+<p><strong><em>NOTE:</em></strong>  The commands in this section were run on a local kind deployment.</p>
+</blockquote>
+<p>If the bpfd-operator came up successfully you will see the bpfd-daemon and
+bpfd-operator pods running without errors:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>kubectl get pods -n bpfd
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>NAME                             READY   STATUS    RESTARTS   AGE
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>bpfd-daemon-6d4qm                <span class="m">2</span>/2     Running   <span class="m">0</span>          75m
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>bpfd-daemon-929tf                <span class="m">2</span>/2     Running   <span class="m">0</span>          75m
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>bpfd-daemon-ftpwn                <span class="m">2</span>/2     Running   <span class="m">0</span>          75m
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>bpfd-operator-685db895b7-9qqrs   <span class="m">2</span>/2     Running   <span class="m">0</span>          75m
+</code></pre></div>
+<p>To test the deployment, load one or both of the example programs.</p>
+<blockquote>
+<p><strong><em>NOTE:</em></strong>  The example <code>BpfProgramConfig</code> CRDs assume that the programs will
+be run on <code>eth0</code>, which is the default for the kind deployment.  If you need
+to run the programs on a different interface, modify <code>interface</code> in the
+associated file:</p>
+<ul>
+<li><code>examples/go-xdp-counter/kubernetes-deployment/go-xdp-counter-bytecode.yaml</code>,
+ or</li>
+<li><code>examples/go-tc-counter/kubernetes-deployment/go-tc-counter-bytecode.yaml</code></li>
+</ul>
+</blockquote>
+<p>Load the example xdp kernel and user space programs:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>kubectl create -f examples/go-xdp-counter/kubernetes-deployment/go-xdp-counter-bytecode.yaml
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>kubectl create -f examples/go-xdp-counter/kubernetes-deployment/go-xdp-counter.yaml
+</code></pre></div>
+<p>Load the example tc kernel and user space programs:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>kubectl create -f examples/go-tc-counter/kubernetes-deployment/go-tc-counter-bytecode.yaml
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>kubectl create -f examples/go-tc-counter/kubernetes-deployment/go-tc-counter.yaml
+</code></pre></div>
+<p>Verify that they are loaded:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>kubectl get pods -A 
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>NAMESPACE            NAME                                                    READY   STATUS    RESTARTS   AGE
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>:
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>go-tc-counter        go-tc-counter-ds-8rgfz                                  <span class="m">1</span>/1     Running   <span class="m">0</span>          13m
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>go-tc-counter        go-tc-counter-ds-gfn8p                                  <span class="m">1</span>/1     Running   <span class="m">0</span>          13m
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>go-tc-counter        go-tc-counter-ds-x6vkw                                  <span class="m">1</span>/1     Running   <span class="m">0</span>          13m
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>go-xdp-counter       go-xdp-counter-ds-6px5b                                 <span class="m">1</span>/1     Running   <span class="m">0</span>          13m
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>go-xdp-counter       go-xdp-counter-ds-ngbj2                                 <span class="m">1</span>/1     Running   <span class="m">0</span>          13m
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>go-xdp-counter       go-xdp-counter-ds-rhkd4                                 <span class="m">1</span>/1     Running   <span class="m">0</span>          13m
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>:
+</code></pre></div>
+<p>You can look at the <code>status</code> field in the <code>bpfprogramconfig</code> to confirm that the
+program has been loaded successfully:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>kubectl get bpfprogramconfig 
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>NAME                     AGE
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>go-tc-counter-example    19m
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>go-xdp-counter-example   19m
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>kubectl get bpfprogramconfig go-xdp-counter-example -o yaml
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>apiVersion: bpfd.io/v1alpha1
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>kind: BpfProgramConfig
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>metadata:
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>  creationTimestamp: <span class="s2">&quot;2023-01-12T17:34:30Z&quot;</span>
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>  finalizers:
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>  - bpfd.io.operator/finalizer
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>  generation: <span class="m">1</span>
+<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>  labels:
+<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>    app.kubernetes.io/name: bpfprogramconfig
+<a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>  name: go-xdp-counter-example
+<a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a>  resourceVersion: <span class="s2">&quot;25382&quot;</span>
+<a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a>  uid: 2abb3fdd-3712-4dbf-8530-d803012f4e91
+<a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a>spec:
+<a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a>  attachpoint:
+<a id="__codelineno-17-21" name="__codelineno-17-21" href="#__codelineno-17-21"></a>    networkmultiattach:
+<a id="__codelineno-17-22" name="__codelineno-17-22" href="#__codelineno-17-22"></a>      direction: NONE
+<a id="__codelineno-17-23" name="__codelineno-17-23" href="#__codelineno-17-23"></a>      interface: eth0
+<a id="__codelineno-17-24" name="__codelineno-17-24" href="#__codelineno-17-24"></a>      priority: <span class="m">55</span>
+<a id="__codelineno-17-25" name="__codelineno-17-25" href="#__codelineno-17-25"></a>  bytecode: image://quay.io/bpfd-bytecode/go-xdp-counter:latest
+<a id="__codelineno-17-26" name="__codelineno-17-26" href="#__codelineno-17-26"></a>  name: stats
+<a id="__codelineno-17-27" name="__codelineno-17-27" href="#__codelineno-17-27"></a>  nodeselector: <span class="o">{}</span>
+<a id="__codelineno-17-28" name="__codelineno-17-28" href="#__codelineno-17-28"></a>  type: XDP
+<a id="__codelineno-17-29" name="__codelineno-17-29" href="#__codelineno-17-29"></a>status:
+<a id="__codelineno-17-30" name="__codelineno-17-30" href="#__codelineno-17-30"></a>  conditions:
+<a id="__codelineno-17-31" name="__codelineno-17-31" href="#__codelineno-17-31"></a>  - lastTransitionTime: <span class="s2">&quot;2023-01-12T17:34:30Z&quot;</span>
+<a id="__codelineno-17-32" name="__codelineno-17-32" href="#__codelineno-17-32"></a>    message: Waiting <span class="k">for</span> BpfProgramConfig Object to be reconciled to all nodes
+<a id="__codelineno-17-33" name="__codelineno-17-33" href="#__codelineno-17-33"></a>    reason: ProgramsNotYetLoaded
+<a id="__codelineno-17-34" name="__codelineno-17-34" href="#__codelineno-17-34"></a>    status: <span class="s2">&quot;True&quot;</span>
+<a id="__codelineno-17-35" name="__codelineno-17-35" href="#__codelineno-17-35"></a>    type: NotYetLoaded
+<a id="__codelineno-17-36" name="__codelineno-17-36" href="#__codelineno-17-36"></a>  - lastTransitionTime: <span class="s2">&quot;2023-01-12T17:34:30Z&quot;</span>
+<a id="__codelineno-17-37" name="__codelineno-17-37" href="#__codelineno-17-37"></a>    message: bpfProgramReconciliation Succeeded on all nodes
+<a id="__codelineno-17-38" name="__codelineno-17-38" href="#__codelineno-17-38"></a>    reason: ReconcileSuccess
+<a id="__codelineno-17-39" name="__codelineno-17-39" href="#__codelineno-17-39"></a>    status: <span class="s2">&quot;True&quot;</span>
+<a id="__codelineno-17-40" name="__codelineno-17-40" href="#__codelineno-17-40"></a>    type: ReconcileSuccess
+</code></pre></div>
+<p>Both of these programs print statistics to their logs, which can be viewed as follows:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>kubectl logs -n go-xdp-counter go-xdp-counter-ds-6px5b
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="m">2023</span>/01/12 <span class="m">17</span>:34:37 <span class="nv">mapPath</span><span class="o">=</span>/run/bpfd/fs/maps/56c8f178-4de2-4012-bec3-6d9abe29e195/xdp_stats_map
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="m">2023</span>/01/12 <span class="m">17</span>:34:40 <span class="m">4382</span> packets received
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="m">2023</span>/01/12 <span class="m">17</span>:34:40 <span class="m">60886324</span> bytes received
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="m">2023</span>/01/12 <span class="m">17</span>:34:43 <span class="m">4391</span> packets received
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="m">2023</span>/01/12 <span class="m">17</span>:34:43 <span class="m">60904814</span> bytes received
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="m">2023</span>/01/12 <span class="m">17</span>:34:46 <span class="m">4402</span> packets received
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="m">2023</span>/01/12 <span class="m">17</span>:34:46 <span class="m">60911249</span> bytes received
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>:
+</code></pre></div>
+<h2 id="api-types-overview">API Types Overview</h2>
+<h3 id="bpfprogramconfig">BpfProgramConfig</h3>
+<p>The <code>BpfProgramConfig</code> CRD is the bpfd K8s API object most relevant to users and
+can be used to understand clusterwide state for a BPF program. It's designed
+to express how, and where BPF programs are to be deployed within a Kubernetes
+cluster.  An example BpfProgramConfig which loads a basic <code>xdp-pass</code> program to
+all nodes can be seen below:</p>
+<blockquote>
+<p><strong>NOTE: Currently the bpfprogram's bytecode section-name MUST match the
+<code>spec.name</code> field in the BpfProgramConfig Object.</strong></p>
+</blockquote>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bpfd.io/v1alpha1</span><span class="w"></span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">BpfProgramConfig</span><span class="w"></span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="nt">metadata</span><span class="p">:</span><span class="w"></span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">  </span><span class="nt">labels</span><span class="p">:</span><span class="w"></span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">    </span><span class="nt">app.kubernetes.io/name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">BpfProgramConfig</span><span class="w"></span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">xdp-pass-all-nodes</span><span class="w"></span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="nt">spec</span><span class="p">:</span><span class="w"></span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="w">  </span><span class="c1">## Must correspond to image section name</span><span class="w"></span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pass</span><span class="w"></span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">XDP</span><span class="w"></span>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="w">  </span><span class="c1"># Select all nodes</span><span class="w"></span>
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a><span class="w">  </span><span class="nt">nodeselector</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w"></span>
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a><span class="w">  </span><span class="nt">priority</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span><span class="w"></span>
+<a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a><span class="w">  </span><span class="nt">attachpoint</span><span class="p">:</span><span class="w"> </span>
+<a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a><span class="w">    </span><span class="nt">interface</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eth0</span><span class="w"></span>
+<a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a><span class="w">  </span><span class="nt">bytecode</span><span class="p">:</span><span class="w"></span>
+<a id="__codelineno-19-17" name="__codelineno-19-17" href="#__codelineno-19-17"></a><span class="w">    </span><span class="nt">imageurl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">quay.io/bpfd-bytecode/xdp_pass:latest</span><span class="w"></span>
+</code></pre></div>
+<h3 id="bpfprogram">BpfProgram</h3>
+<p>The <code>BpfProgram</code> CRD is used internally by the bpfd-deployment to keep track of
+per node bpfd state such as program UUIDs and map pin points, and to report node
+specific errors back to the user. K8s users/controllers are only allowed to view
+these objects, NOT create or edit them.  Below is an example BpfProgram Object
+which was automatically generated in response to the above BpfProgramConfig
+Object.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bpfd.io/v1alpha1</span><span class="w"></span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">kind</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">BpfProgram</span><span class="w"></span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">metadata</span><span class="p p-Indicator">:</span><span class="w"></span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">    </span><span class="nt">creationTimestamp</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;2022-12-07T22:41:29Z&quot;</span><span class="w"></span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">    </span><span class="nt">finalizers</span><span class="p">:</span><span class="w"></span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bpfd.io.agent/finalizer</span><span class="w"></span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="w">    </span><span class="nt">generation</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span><span class="w"></span>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="w">    </span><span class="nt">labels</span><span class="p">:</span><span class="w"></span>
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="w">      </span><span class="nt">owningConfig</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">xdp-pass-all-nodes</span><span class="w"></span>
+<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">xdp-pass-all-nodes-bpfd-deployment-worker2</span><span class="w"></span>
+<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="w">    </span><span class="nt">ownerReferences</span><span class="p">:</span><span class="w"></span>
+<a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bpfd.io/v1alpha1</span><span class="w"></span>
+<a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a><span class="w">      </span><span class="nt">blockOwnerDeletion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"></span>
+<a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a><span class="w">      </span><span class="nt">controller</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"></span>
+<a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a><span class="w">      </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">BpfProgramConfig</span><span class="w"></span>
+<a id="__codelineno-20-16" name="__codelineno-20-16" href="#__codelineno-20-16"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">xdp-pass-all-nodes</span><span class="w"></span>
+<a id="__codelineno-20-17" name="__codelineno-20-17" href="#__codelineno-20-17"></a><span class="w">      </span><span class="nt">uid</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">6e3f5851-97b1-4772-906b-3ac69c6a4057</span><span class="w"></span>
+<a id="__codelineno-20-18" name="__codelineno-20-18" href="#__codelineno-20-18"></a><span class="w">    </span><span class="nt">resourceVersion</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;1506&quot;</span><span class="w"></span>
+<a id="__codelineno-20-19" name="__codelineno-20-19" href="#__codelineno-20-19"></a><span class="w">    </span><span class="nt">uid</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">384d3d5c-e62b-4be3-9bf0-c6cf0e315acf</span><span class="w"></span>
+<a id="__codelineno-20-20" name="__codelineno-20-20" href="#__codelineno-20-20"></a><span class="w w-Error">  </span><span class="nt">spec</span><span class="p">:</span><span class="w"></span>
+<a id="__codelineno-20-21" name="__codelineno-20-21" href="#__codelineno-20-21"></a><span class="w">    </span><span class="nt">programs</span><span class="p">:</span><span class="w"></span>
+<a id="__codelineno-20-22" name="__codelineno-20-22" href="#__codelineno-20-22"></a><span class="w">      </span><span class="nt">bdeac6d3-4128-464e-9161-6010684eca27</span><span class="p">:</span><span class="w"></span>
+<a id="__codelineno-20-23" name="__codelineno-20-23" href="#__codelineno-20-23"></a><span class="w">        </span><span class="nt">attachpoint</span><span class="p">:</span><span class="w"></span>
+<a id="__codelineno-20-24" name="__codelineno-20-24" href="#__codelineno-20-24"></a><span class="w">          </span><span class="nt">interface</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eth0</span><span class="w"></span>
+<a id="__codelineno-20-25" name="__codelineno-20-25" href="#__codelineno-20-25"></a><span class="w">        </span><span class="nt">maps</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w"></span>
+<a id="__codelineno-20-26" name="__codelineno-20-26" href="#__codelineno-20-26"></a><span class="w">  </span><span class="nt">status</span><span class="p">:</span><span class="w"></span>
+<a id="__codelineno-20-27" name="__codelineno-20-27" href="#__codelineno-20-27"></a><span class="w">    </span><span class="nt">conditions</span><span class="p">:</span><span class="w"></span>
+<a id="__codelineno-20-28" name="__codelineno-20-28" href="#__codelineno-20-28"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lastTransitionTime</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;2022-12-07T22:41:30Z&quot;</span><span class="w"></span>
+<a id="__codelineno-20-29" name="__codelineno-20-29" href="#__codelineno-20-29"></a><span class="w">      </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Successfully loaded BpfProgram</span><span class="w"></span>
+<a id="__codelineno-20-30" name="__codelineno-20-30" href="#__codelineno-20-30"></a><span class="w">      </span><span class="nt">reason</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bpfdLoaded</span><span class="w"></span>
+<a id="__codelineno-20-31" name="__codelineno-20-31" href="#__codelineno-20-31"></a><span class="w">      </span><span class="nt">status</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;True&quot;</span><span class="w"></span>
+<a id="__codelineno-20-32" name="__codelineno-20-32" href="#__codelineno-20-32"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Loaded</span><span class="w"></span>
+</code></pre></div>
+<p>Applications wishing to use bpfd to deploy/manage their BPF programs in
+Kubernetes will make use of this object to find references to the bpfMap pin
+points (<code>spec.maps</code>) in order to configure their BPF programs.</p>
+<h3 id="kubectl-plugins">Kubectl Plugins</h3>
+<blockquote>
+<p><strong>Still a work in progress.</strong></p>
+</blockquote>
+<p>There are two scripts to help retrieve the BpfProgramConfig and BpfProgram objects
+in a summary format.
+The BpfProgramConfig script uses <code>kubectl</code> with <code>-o custom-columns</code> and the BpfProgram
+script uses <code>kubectl</code> with <code>-o jsonpath</code>.</p>
+<p>Example of summary of BpfProgramConfigs:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="go">kubectl bpfprogramconfigs</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="go">NAME                     TYPE        SECNAME   STATUS             INTERFACE   PRIORITY   DIRECTION   TRACEPOINT</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="go">go-tc-counter-example    TC          stats     ReconcileSuccess   eth0        55         INGRESS     &lt;none&gt;</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="go">go-xdp-counter-example   XDP         stats     ReconcileSuccess   eth0        55         NONE        &lt;none&gt;</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="go">xdp-pass-all-nodes       XDP         pass      ReconcileSuccess   eth0        60         NONE        &lt;none&gt;</span>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="go">tracepoint-example       TRACEPOINT  hello     ReconcileSuccess   &lt;none&gt;      &lt;none&gt;     &lt;none&gt;      sched/sched_switch</span>
+</code></pre></div>
+<p>Example of summary of BpfPrograms:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="go">kubectl bpfprograms</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="go">STATUS  REASON    NAME</span>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="go">   IFACE  PRI DIR TRACEPOINT</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="go">Loaded  bpfdLoaded  go-tc-counter-example-bpfd-deployment-control-plane</span>
+<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="go">   eth0 55  INGRESS </span>
+<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>
+<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="go">Loaded  bpfdLoaded  go-tc-counter-example-bpfd-deployment-worker</span>
+<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a><span class="go">   eth0 55  INGRESS </span>
+<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a>
+<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a><span class="go">Loaded  bpfdLoaded  go-tc-counter-example-bpfd-deployment-worker2</span>
+<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a><span class="go">   eth0 55  INGRESS </span>
+<a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a>
+<a id="__codelineno-22-15" name="__codelineno-22-15" href="#__codelineno-22-15"></a><span class="go">Loaded  bpfdLoaded  go-xdp-counter-example-bpfd-deployment-control-plane</span>
+<a id="__codelineno-22-16" name="__codelineno-22-16" href="#__codelineno-22-16"></a><span class="go">   eth0 55  NONE  </span>
+<a id="__codelineno-22-17" name="__codelineno-22-17" href="#__codelineno-22-17"></a>
+<a id="__codelineno-22-18" name="__codelineno-22-18" href="#__codelineno-22-18"></a><span class="go">Loaded  bpfdLoaded  go-xdp-counter-example-bpfd-deployment-worker</span>
+<a id="__codelineno-22-19" name="__codelineno-22-19" href="#__codelineno-22-19"></a><span class="go">   eth0 55  NONE  </span>
+<a id="__codelineno-22-20" name="__codelineno-22-20" href="#__codelineno-22-20"></a>
+<a id="__codelineno-22-21" name="__codelineno-22-21" href="#__codelineno-22-21"></a><span class="go">Loaded  bpfdLoaded  go-xdp-counter-example-bpfd-deployment-worker2</span>
+<a id="__codelineno-22-22" name="__codelineno-22-22" href="#__codelineno-22-22"></a><span class="go">   eth0 55  NONE  </span>
+<a id="__codelineno-22-23" name="__codelineno-22-23" href="#__codelineno-22-23"></a>
+<a id="__codelineno-22-24" name="__codelineno-22-24" href="#__codelineno-22-24"></a><span class="go">Loaded  bpfdLoaded  xdp-pass-all-nodes-bpfd-deployment-control-plane</span>
+<a id="__codelineno-22-25" name="__codelineno-22-25" href="#__codelineno-22-25"></a><span class="go">   eth0 60  NONE  </span>
+<a id="__codelineno-22-26" name="__codelineno-22-26" href="#__codelineno-22-26"></a>
+<a id="__codelineno-22-27" name="__codelineno-22-27" href="#__codelineno-22-27"></a><span class="go">Loaded  bpfdLoaded  xdp-pass-all-nodes-bpfd-deployment-worker</span>
+<a id="__codelineno-22-28" name="__codelineno-22-28" href="#__codelineno-22-28"></a><span class="go">   eth0 60  NONE  </span>
+<a id="__codelineno-22-29" name="__codelineno-22-29" href="#__codelineno-22-29"></a>
+<a id="__codelineno-22-30" name="__codelineno-22-30" href="#__codelineno-22-30"></a><span class="go">Loaded  bpfdLoaded  xdp-pass-all-nodes-bpfd-deployment-worker2</span>
+<a id="__codelineno-22-31" name="__codelineno-22-31" href="#__codelineno-22-31"></a><span class="go">   eth0 60  NONE  </span>
+</code></pre></div>
+<p>To install the kubectl plugins, run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="go">sudo ./scripts/setup.sh kubectl</span>
+</code></pre></div>
+<p>The kubectl plugins will be deleted when <code>uninstall</code> is run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="go">sudo ./scripts/setup.sh uninstall</span>
+</code></pre></div>
+<blockquote>
+<p><strong>NOTE:</strong> <code>./scripts/setup.sh uninstall</code> removes ALL files installed by <code>bpfd</code>,
+including any bpfd binaries and service files.</p>
+</blockquote>
+<h2 id="controllers">Controllers</h2>
+<p>The Bpfd-Operator performs a few major functions and houses two major
+controllers the <code>bpfd-agent</code> and <code>bpfd-operator</code>.</p>
+<h3 id="bpfd-agent">bpfd-agent</h3>
+<p>The bpfd-agent controller is deployed alongside bpfd in a daemonset.  It's main
+purpose is to watch user intent (in BpfProgramConfig Objects) and communicate
+with bpfd via a mTLS secured connection in order to translate the cluster-wide
+user-intent to per node state.</p>
+<h3 id="bpfd-operator">bpfd-operator</h3>
+<p>The bpfd-operator performs the following functionality:</p>
+<ul>
+<li>Create and Reconcile the bpfd daemonset (including both the <code>bpfd</code> and
+  <code>bpfd-agent</code> processes) so that no manual edits can be completed.</li>
+<li>Report cluster wide state back the the user with each BpfProgramConfig's
+  status field.</li>
+</ul>
+<h2 id="more-useful-commands">More useful commands</h2>
+<ol>
+<li>Install Instances of Custom Resources:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>kubectl apply -f config/samples/
+</code></pre></div>
+<ol>
+<li>Build and push your bpfd-agent and bpd-operator container images to the
+   location specified by <code>BPFD_AGENT_IMG</code> and <code>BPFD_OPERATOR_IMG</code>:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>make build-images push-images <span class="nv">BPFD_OPERATOR_IMG</span><span class="o">=</span>&lt;some-registry&gt;/bpfd-operator:tag <span class="nv">BPFD_AGENT_IMAGE</span><span class="o">=</span>&lt;some-registry&gt;/bpfd-agent:tag
+</code></pre></div>
+<ol>
+<li>Deploy the operator and agent to a cluster with the image specified by
+   <code>BPFD_AGENT_IMG</code> and <code>BPFD_OPERATOR_IMG</code>:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>make deploy <span class="nv">BPFD_OPERATOR_IMG</span><span class="o">=</span>&lt;some-registry&gt;/bpfd-operator:tag <span class="nv">BPFD_AGENT_IMAGE</span><span class="o">=</span>&lt;some-registry&gt;/bpfd-agent:tag
+</code></pre></div>
+<h2 id="reinstall-crds">Reinstall CRDs</h2>
+<p>To delete the CRDs from the cluster:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>make uninstall
+</code></pre></div>
+<h2 id="deploy-controller">Deploy controller</h2>
+<p>Deploy bpfd-operator to the K8s cluster specified in ~/.kube/config:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>make deploy
+</code></pre></div>
+<h2 id="undeploy-controller">Undeploy controller</h2>
+<p>Undeploy the controller from a vanilla K8s Deployment cluster:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>make undeploy
+</code></pre></div>
+<h2 id="modifying-the-api-definitions">Modifying the API definitions</h2>
+<p>If you are editing the API definitions, generate the manifests such as CRs or CRDs using:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>make manifests
+</code></pre></div>
+
+              
+            </article>
+            
+          </div>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+    <nav class="md-footer__inner md-grid" aria-label="Footer" >
+      
+        
+        <a href="../example-bpf-k8s/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Deploying Example BPF Programs On Kubernetes" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              Deploying Example BPF Programs On Kubernetes
+            </div>
+          </div>
+        </a>
+      
+      
+        
+        <a href="../image-build/" class="md-footer__link md-footer__link--next" aria-label="Next: BPFD Container Images" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              BPFD Container Images
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+          </div>
+        </a>
+      
+    </nav>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2021-2023 The bpfd contribtutors
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.indexes", "navigation.tabs", "navigation.tabs.sticky", "content.code.annotate"], "search": "../assets/javascripts/workers/search.85cb4492.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.a877e258.min.js"></script>
+      
+    
+  </body>
+</html>
