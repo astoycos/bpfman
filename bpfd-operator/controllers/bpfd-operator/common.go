@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	bpfdiov1alpha1 "github.com/bpfd-dev/bpfd/bpfd-operator/apis/v1alpha1"
-	"github.com/bpfd-dev/bpfd/bpfd-operator/internal"
+	internal "github.com/bpfd-dev/bpfd/bpfd-operator/internal"
 	"github.com/go-logr/logr"
 )
 
