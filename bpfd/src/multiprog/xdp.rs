@@ -22,7 +22,6 @@ use crate::{
     dispatcher_config::XdpDispatcherConfig,
     errors::BpfdError,
     oci_utils::{image_manager::get_bytecode_from_image_store, BytecodeImage},
-    utils::read,
 };
 
 pub(crate) const DEFAULT_PRIORITY: u32 = 50;
@@ -177,14 +176,11 @@ impl XdpDispatcher {
                 );
                 new_link.pin(path).map_err(BpfdError::UnableToPinLink)?;
             } else {
-                let program_bytes = if v.data.path.clone().contains(BYTECODE_IMAGE_CONTENT_STORE) {
-                    get_bytecode_from_image_store(v.data.path.clone()).await?
-                } else {
-                    read(v.data.path.clone()).await.map_err(|e| {
-                        BpfdError::Error(format!("can't read bytecode file from disk {e}"))
-                    })?
-                };
-
+                let program_bytes = v
+                    .data
+                    .location
+                    .get_program_bytes(&v.data.section_name)
+                    .await?;
                 let mut bpf = BpfLoader::new();
 
                 for (name, value) in &v.data.global_data {

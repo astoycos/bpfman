@@ -119,7 +119,7 @@ pub(crate) async fn get_static_programs<P: AsRef<Path>>(
                                 None,
                                 String::from("bpfd"),
                             )
-                            .await?,
+                            .await,
                             XdpProgramInfo {
                                 if_index,
                                 current_position: None,
@@ -144,7 +144,7 @@ pub(crate) async fn get_static_programs<P: AsRef<Path>>(
                                 None,
                                 String::from("bpfd"),
                             )
-                            .await?,
+                            .await,
                             direction: m.direction,
                             info: TcProgramInfo {
                                 if_index,
@@ -168,7 +168,7 @@ pub(crate) async fn get_static_programs<P: AsRef<Path>>(
                                 None,
                                 String::from("bpfd"),
                             )
-                            .await?,
+                            .await,
                             TracepointProgramInfo {
                                 tracepoint: m.tracepoint,
                             },

@@ -17,7 +17,7 @@ use uuid::Uuid;
 use crate::{
     errors::BpfdError,
     multiprog::{DispatcherId, DispatcherInfo},
-    oci_utils::BytecodeImage,
+    oci_utils::{image_manager::get_bytecode_from_image_store, BytecodeImage},
 };
 
 /// Provided by the requester and used by the manager task to send
@@ -135,6 +135,39 @@ pub(crate) struct PullBytecodeArgs {
 pub(crate) enum Location {
     Image(BytecodeImage),
     File(String),
+}
+
+impl Location {
+    pub(crate) async fn get_program_bytes(
+        &self,
+        section_name: &String,
+    ) -> Result<Vec<u8>, BpfdError> {
+        match self {
+            Location::File(l) => crate::utils::read(l).await,
+            Location::Image(l) => {
+                let program_overrides = l
+                    .clone()
+                    .get_image(None)
+                    .await
+                    .map_err(|e| BpfdError::BpfBytecodeError(e.into()))?;
+
+                // If section name isn't provided and we're loading from a container
+                // image use the section name provided in the image metadata, otherwise
+                // always use the provided section name.
+                if !section_name.is_empty()
+                    && program_overrides.image_meta.section_name != *section_name
+                {
+                    return Err(BpfdError::BytecodeMetaDataMismatch {
+                        image_sec_name: program_overrides.image_meta.section_name,
+                        provided_sec_name: section_name.clone(),
+                    });
+                }
+                get_bytecode_from_image_store(program_overrides.path)
+                    .await
+                    .map_err(|e| BpfdError::Error(format!("Bytecode loading error: {e}")))
+            }
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Hash, Deserialize, Eq, PartialEq, Copy, Clone)]
@@ -360,7 +393,6 @@ pub(crate) struct ProgramData {
     pub(crate) location: Location,
     pub(crate) section_name: String,
     pub(crate) global_data: HashMap<String, Vec<u8>>,
-    pub(crate) path: String,
     pub(crate) owner: String,
     pub(crate) map_owner_uuid: Option<Uuid>,
     pub(crate) kernel_info: Option<KernelProgramInfo>,
@@ -369,51 +401,18 @@ pub(crate) struct ProgramData {
 impl ProgramData {
     pub(crate) async fn new(
         location: Location,
-        mut section_name: String,
+        section_name: String,
         global_data: HashMap<String, Vec<u8>>,
         map_owner_uuid: Option<Uuid>,
         owner: String,
-    ) -> Result<Self, BpfdError> {
-        match location.clone() {
-            Location::File(l) => Ok(ProgramData {
-                location,
-                path: l,
-                section_name,
-                owner,
-                global_data,
-                map_owner_uuid,
-                kernel_info: None,
-            }),
-            Location::Image(l) => {
-                let program_overrides = l
-                    .get_image(None)
-                    .await
-                    .map_err(|e| BpfdError::BpfBytecodeError(e.into()))?;
-
-                // If section name isn't provided and we're loading from a container
-                // image use the section name provided in the image metadata, otherwise
-                // always use the provided section name.
-                if section_name.is_empty() {
-                    section_name = program_overrides.image_meta.section_name
-                } else if program_overrides.image_meta.section_name != section_name {
-                    return Err(BpfdError::BytecodeMetaDataMismatch {
-                        image_sec_name: program_overrides.image_meta.section_name,
-                        provided_sec_name: section_name,
-                    });
-                }
-
-                Ok(ProgramData {
-                    location,
-                    path: program_overrides.path,
-                    section_name,
-                    global_data,
-                    owner,
-                    map_owner_uuid,
-                    // this is populated when the programs bytecode in loaded into
-                    // the kernel.
-                    kernel_info: None,
-                })
-            }
+    ) -> Self {
+        Self {
+            location,
+            section_name,
+            owner,
+            global_data,
+            map_owner_uuid,
+            kernel_info: None,
         }
     }
 }
