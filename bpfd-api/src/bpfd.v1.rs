@@ -12,6 +12,9 @@ pub struct BytecodeImage {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct NoLocation {}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct LoadRequestCommon {
     #[prost(string, tag = "3")]
     pub section_name: ::prost::alloc::string::String,
@@ -114,6 +117,8 @@ pub struct UnloadResponse {}
 pub struct ListRequest {
     #[prost(int32, optional, tag = "1")]
     pub program_type: ::core::option::Option<i32>,
+    #[prost(bool, optional, tag = "2")]
+    pub bpfd_programs_only: ::core::option::Option<bool>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -126,15 +131,37 @@ pub mod list_response {
     #[allow(clippy::derive_partial_eq_without_eq)]
     #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct ListResult {
-        #[prost(string, tag = "1")]
-        pub id: ::prost::alloc::string::String,
+        #[prost(string, optional, tag = "1")]
+        pub id: ::core::option::Option<::prost::alloc::string::String>,
         #[prost(string, optional, tag = "2")]
-        pub section_name: ::core::option::Option<::prost::alloc::string::String>,
-        #[prost(int32, tag = "5")]
-        pub program_type: i32,
-        #[prost(oneof = "list_result::Location", tags = "3, 4")]
+        pub name: ::core::option::Option<::prost::alloc::string::String>,
+        #[prost(uint32, tag = "6")]
+        pub program_type: u32,
+        #[prost(uint32, tag = "11")]
+        pub bpf_id: u32,
+        #[prost(uint64, tag = "13")]
+        pub loaded_at: u64,
+        #[prost(string, tag = "14")]
+        pub tag: ::prost::alloc::string::String,
+        #[prost(bool, tag = "15")]
+        pub gpl_compatible: bool,
+        #[prost(uint32, repeated, tag = "16")]
+        pub map_ids: ::prost::alloc::vec::Vec<u32>,
+        #[prost(uint32, tag = "17")]
+        pub btf_id: u32,
+        #[prost(uint32, tag = "18")]
+        pub bytes_xlated: u32,
+        #[prost(bool, tag = "19")]
+        pub jited: bool,
+        #[prost(uint32, tag = "20")]
+        pub bytes_jited: u32,
+        #[prost(uint32, tag = "21")]
+        pub bytes_memlock: u32,
+        #[prost(uint32, tag = "22")]
+        pub verified_insns: u32,
+        #[prost(oneof = "list_result::Location", tags = "3, 4, 5")]
         pub location: ::core::option::Option<list_result::Location>,
-        #[prost(oneof = "list_result::AttachInfo", tags = "6, 7, 8, 9")]
+        #[prost(oneof = "list_result::AttachInfo", tags = "7, 8, 9, 10")]
         pub attach_info: ::core::option::Option<list_result::AttachInfo>,
     }
     /// Nested message and enum types in `ListResult`.
@@ -143,20 +170,22 @@ pub mod list_response {
         #[derive(Clone, PartialEq, ::prost::Oneof)]
         pub enum Location {
             #[prost(message, tag = "3")]
+            NoLocation(super::super::NoLocation),
+            #[prost(message, tag = "4")]
             Image(super::super::BytecodeImage),
-            #[prost(string, tag = "4")]
+            #[prost(string, tag = "5")]
             File(::prost::alloc::string::String),
         }
         #[allow(clippy::derive_partial_eq_without_eq)]
         #[derive(Clone, PartialEq, ::prost::Oneof)]
         pub enum AttachInfo {
-            #[prost(message, tag = "6")]
-            None(super::super::NoAttachInfo),
             #[prost(message, tag = "7")]
-            XdpAttachInfo(super::super::XdpAttachInfo),
+            NoAttachInfo(super::super::NoAttachInfo),
             #[prost(message, tag = "8")]
-            TcAttachInfo(super::super::TcAttachInfo),
+            XdpAttachInfo(super::super::XdpAttachInfo),
             #[prost(message, tag = "9")]
+            TcAttachInfo(super::super::TcAttachInfo),
+            #[prost(message, tag = "10")]
             TracepointAttachInfo(super::super::TracepointAttachInfo),
         }
     }
