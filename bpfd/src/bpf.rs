@@ -5,7 +5,7 @@ use std::{collections::HashMap, convert::TryInto};
 
 use anyhow::anyhow;
 use aya::{
-    programs::{links::FdLink, trace_point::TracePointLink, TracePoint},
+    programs::{links::FdLink, trace_point::TracePointLink, TracePoint, loaded_programs},
     BpfLoader,
 };
 use bpfd_api::{config::Config, util::directories::*, ProgramType};
@@ -19,13 +19,13 @@ use crate::{
         Direction::{Egress, Ingress},
         LoadTCArgs, LoadTracepointArgs, LoadXDPArgs, Program, ProgramData, ProgramInfo, TcProgram,
         TcProgramInfo, TracepointProgram, TracepointProgramInfo, UnloadArgs, XdpProgram,
-        XdpProgramInfo,
+        XdpProgramInfo, ListInfo, LinuxProgramInfo,
     },
     errors::BpfdError,
     multiprog::{Dispatcher, DispatcherId, DispatcherInfo, TcDispatcher, XdpDispatcher},
     oci_utils::image_manager::get_bytecode_from_image_store,
     serve::shutdown_handler,
-    utils::{get_ifindex, read, set_dir_permissions},
+    utils::{get_ifindex, read, set_dir_permissions, bytes_to_string},
 };
 
 const SUPERUSER: &str = "bpfctl";
@@ -472,51 +472,100 @@ impl BpfManager {
         Ok(())
     }
 
-    pub(crate) fn list_programs(&mut self) -> Result<Vec<ProgramInfo>, BpfdError> {
+    pub(crate) fn list_programs(&mut self) -> Result<Vec<ListInfo>, BpfdError> {
         debug!("BpfManager::list_programs()");
-        let programs = self
+
+        let mut bpfd_progs: HashMap<String, ProgramInfo> = self
             .programs
             .iter()
-            .map(|(id, p)| match p {
-                Program::Xdp(p) => ProgramInfo {
-                    id: *id,
-                    name: p.data.section_name.to_string(),
-                    location: p.data.location.clone(),
-                    program_type: ProgramType::Xdp as i32,
-                    attach_info: crate::command::AttachInfo::Xdp(crate::command::XdpAttachInfo {
-                        iface: p.info.if_name.to_string(),
-                        priority: p.info.metadata.priority,
-                        proceed_on: p.info.proceed_on.clone(),
-                        position: p.info.current_position.unwrap_or_default() as i32,
-                    }),
-                },
-                Program::Tracepoint(p) => ProgramInfo {
-                    id: *id,
-                    name: p.data.section_name.to_string(),
-                    location: p.data.location.clone(),
-                    program_type: ProgramType::Tracepoint as i32,
-                    attach_info: crate::command::AttachInfo::Tracepoint(
-                        crate::command::TracepointAttachInfo {
-                            tracepoint: p.info.tracepoint.to_string(),
-                        },
-                    ),
-                },
-                Program::Tc(p) => ProgramInfo {
-                    id: *id,
-                    name: p.data.section_name.to_string(),
-                    location: p.data.location.clone(),
-                    program_type: ProgramType::Tc as i32,
-                    attach_info: crate::command::AttachInfo::Tc(crate::command::TcAttachInfo {
-                        iface: p.info.if_name.to_string(),
-                        priority: p.info.metadata.priority,
-                        proceed_on: p.info.proceed_on.clone(),
-                        direction: p.direction,
-                        position: p.info.current_position.unwrap_or_default() as i32,
-                    }),
-                },
+            .map(|(id, p)| {
+                    match p {
+                        Program::Xdp(p) =>  (p.data.section_name.to_string(),
+                            ProgramInfo {
+                                id: *id,
+                                name: p.data.section_name.to_string(),
+                                location: p.data.location.clone(),
+                                program_type: ProgramType::Xdp as i32,
+                                attach_info: crate::command::AttachInfo::Xdp(crate::command::XdpAttachInfo {
+                                    iface: p.info.if_name.to_string(),
+                                    priority: p.info.metadata.priority,
+                                    proceed_on: p.info.proceed_on.clone(),
+                                    position: p.info.current_position.unwrap_or_default() as i32,
+                                }),
+                            }),
+                        Program::Tracepoint(p) => (p.data.section_name.to_string(),
+                            ProgramInfo {
+                                id: *id,
+                                name: p.data.section_name.to_string(),
+                                location: p.data.location.clone(),
+                                program_type: ProgramType::Tracepoint as i32,
+                                attach_info: crate::command::AttachInfo::Tracepoint(
+                                    crate::command::TracepointAttachInfo {
+                                        tracepoint: p.info.tracepoint.to_string(),
+                                    },
+                                ),
+                            }),
+                        Program::Tc(p) => (p.data.section_name.to_string(),
+                            ProgramInfo {
+                                id: *id,
+                                name: p.data.section_name.to_string(),
+                                location: p.data.location.clone(),
+                                program_type: ProgramType::Tc as i32,
+                                attach_info: crate::command::AttachInfo::Tc(crate::command::TcAttachInfo {
+                                    iface: p.info.if_name.to_string(),
+                                    priority: p.info.metadata.priority,
+                                    proceed_on: p.info.proceed_on.clone(),
+                                    direction: p.direction,
+                                    position: p.info.current_position.unwrap_or_default() as i32,
+                                }),
+                            }),
+                    }
             })
             .collect();
-        Ok(programs)
+
+        let mut all_bpf_programs:Vec<ListInfo> = Vec::new();
+
+        for p in loaded_programs() { 
+            match p.unwrap() {
+                aya::programs::ProgramInfo(i) => 
+                { 
+                    let prog_name = bytes_to_string::<i8>(&i.name);
+                    let mut lpi = LinuxProgramInfo{
+                        id: i.id,
+                        name: prog_name.to_string(),
+                        program_type: i.type_,
+                        loaded_at: i.load_time,
+                        tag: bytes_to_string::<u8>(&i.tag),
+                        gpl_compatible: i.gpl_compatible() != 0,
+                        map_ids: Vec::new(),//i.map_ids,
+                        btf_id: i.btf_id,
+                        bytes_xlated: i.xlated_prog_len,
+                        jited: i.jited_prog_len != 0,
+                        bytes_jited: i.jited_prog_len,
+                        bytes_memlock: 0,
+                        verified_insns: i.verified_insns,
+                    };
+                    debug!("listed program name is {}", prog_name);
+                    all_bpf_programs.push(
+                        ListInfo{
+                            bpfd_info: {
+                                match bpfd_progs.remove(&prog_name) { 
+                                    Some(i) => {
+                                        lpi.program_type = i.clone().program_type as u32;
+                                        lpi.name = i.clone().name;
+                                        Some(i)
+                                    }
+                                    None => None,
+                                }
+                            },
+                            info: lpi
+                        }
+                    )
+                }
+            };
+        }
+
+        Ok(all_bpf_programs)
     }
 
     fn sort_programs(

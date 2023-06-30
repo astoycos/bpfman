@@ -110,10 +110,10 @@ impl TryFrom<String> for ProgramType {
     }
 }
 
-impl TryFrom<i32> for ProgramType {
+impl TryFrom<u32> for ProgramType {
     type Error = ParseError;
 
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
         Ok(match value {
             0 => ProgramType::Unspec,
             1 => ProgramType::SocketFilter,

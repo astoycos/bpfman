@@ -9,11 +9,11 @@ use bpfd_api::{
         load_request_common::Location,
         loader_server::Loader,
         ListRequest, ListResponse, LoadRequest, LoadResponse, TcAttachInfo, TracepointAttachInfo,
-        UnloadRequest, UnloadResponse, XdpAttachInfo,
+        UnloadRequest, UnloadResponse, XdpAttachInfo, NoAttachInfo, NoLocation
     },
     TcProceedOn, XdpProceedOn,
 };
-use log::warn;
+use log::{warn, debug};
 use tokio::sync::{mpsc, mpsc::Sender, oneshot};
 use tonic::{Request, Response, Status};
 use uuid::Uuid;
@@ -215,52 +215,75 @@ impl Loader for BpfdLoader {
             Ok(res) => match res {
                 Ok(results) => {
                     for r in results {
-                        let attach_info = match r.attach_info {
-                            crate::command::AttachInfo::Xdp(info) => {
-                                AttachInfo::XdpAttachInfo(XdpAttachInfo {
-                                    priority: info.priority,
-                                    iface: info.iface,
-                                    position: info.position,
-                                    proceed_on: info.proceed_on.as_action_vec(),
-                                })
-                            }
-                            crate::command::AttachInfo::Tc(info) => {
-                                AttachInfo::TcAttachInfo(TcAttachInfo {
-                                    priority: info.priority,
-                                    iface: info.iface,
-                                    position: info.position,
-                                    direction: info.direction.to_string(),
-                                    proceed_on: info.proceed_on.as_action_vec(),
-                                })
-                            }
-                            crate::command::AttachInfo::Tracepoint(info) => {
-                                AttachInfo::TracepointAttachInfo(TracepointAttachInfo {
-                                    tracepoint: info.tracepoint,
-                                })
-                            }
+                        debug!("List results {:?}", r.info);
+                        let id = match r.bpfd_info.clone() { 
+                            Some(i) => i.id.to_string(),
+                            None => "".to_owned()
                         };
 
-                        let loc = match r.location {
-                            crate::command::Location::Image(m) => {
-                                Some(list_result::Location::Image(bpfd_api::v1::BytecodeImage {
-                                    url: m.get_url().to_string(),
-                                    image_pull_policy: m.get_pull_policy() as i32,
-                                    // Never dump Plaintext Credentials
-                                    username: "".to_string(),
-                                    password: "".to_string(),
-                                }))
-                            }
-                            crate::command::Location::File(m) => {
-                                Some(list_result::Location::File(m))
-                            }
+                        let attach_info = match r.bpfd_info.clone() {
+                            Some(a) => match a.attach_info {
+                                crate::command::AttachInfo::Xdp(info) => {
+                                    Some(AttachInfo::XdpAttachInfo(XdpAttachInfo {
+                                        priority: info.priority,
+                                        iface: info.iface,
+                                        position: info.position,
+                                        proceed_on: info.proceed_on.as_action_vec(),
+                                    }))
+                                }
+                                crate::command::AttachInfo::Tc(info) => {
+                                    Some(AttachInfo::TcAttachInfo(TcAttachInfo {
+                                        priority: info.priority,
+                                        iface: info.iface,
+                                        position: info.position,
+                                        direction: info.direction.to_string(),
+                                        proceed_on: info.proceed_on.as_action_vec(),
+                                    }))
+                                }
+                                crate::command::AttachInfo::Tracepoint(info) => {
+                                    Some(AttachInfo::TracepointAttachInfo(TracepointAttachInfo {
+                                        tracepoint: info.tracepoint,
+                                    }))
+                                }
+                            },
+                            None => Some(AttachInfo::NoAttachInfo(NoAttachInfo {})),
                         };
+
+                        let loc = match r.bpfd_info.clone() {
+                            Some(l) => match l.location {
+                                crate::command::Location::Image(m) => {
+                                    Some(list_result::Location::Image(bpfd_api::v1::BytecodeImage {
+                                        url: m.get_url().to_string(),
+                                        image_pull_policy: m.get_pull_policy() as i32,
+                                        // Never dump Plaintext Credentials
+                                        username: "".to_string(),
+                                        password: "".to_string(),
+                                    }))
+                                }
+                                crate::command::Location::File(m) => {
+                                    Some(list_result::Location::File(m))
+                                }
+                            },
+                            None => Some(list_result::Location::NoLocation(NoLocation {})),
+                        }; 
 
                         reply.results.push(ListResult {
-                            id: r.id.to_string(),
-                            section_name: Some(r.name),
-                            attach_info: Some(attach_info),
+                            id: Some(id),
+                            name: Some(r.info.name),
+                            attach_info: attach_info,
                             location: loc,
-                            program_type: r.program_type,
+                            program_type: r.info.program_type,
+                            bpf_id: r.info.id,
+                            loaded_at: r.info.loaded_at,
+                            tag: r.info.tag,
+                            gpl_compatible: r.info.gpl_compatible,
+                            map_ids: r.info.map_ids,
+                            btf_id: r.info.btf_id,
+                            bytes_xlated: r.info.bytes_xlated,
+                            jited: r.info.jited,
+                            bytes_jited: r.info.bytes_jited,
+                            bytes_memlock: r.info.bytes_memlock,
+                            verified_insns: r.info.verified_insns,
                         })
                     }
                     Ok(Response::new(reply))

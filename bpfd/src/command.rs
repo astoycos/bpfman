@@ -34,7 +34,7 @@ pub(crate) enum Command {
     LoadTracepoint(LoadTracepointArgs),
     Unload(UnloadArgs),
     List {
-        responder: Responder<Result<Vec<ProgramInfo>, BpfdError>>,
+        responder: Responder<Result<Vec<ListInfo>, BpfdError>>,
     },
 }
 
@@ -119,12 +119,39 @@ impl std::fmt::Display for Direction {
 }
 
 #[derive(Debug, Clone)]
+pub(crate) struct ListInfo { 
+    pub(crate) bpfd_info: Option<ProgramInfo>,
+    pub(crate) info: LinuxProgramInfo
+}
+
+/// ProgramInfo stores information about bpf programs loaded on a system
+/// which are managed via bpfd.
+#[derive(Debug, Clone)]
 pub(crate) struct ProgramInfo {
     pub(crate) id: Uuid,
     pub(crate) name: String,
     pub(crate) location: Location,
     pub(crate) program_type: i32,
     pub(crate) attach_info: AttachInfo,
+}
+
+/// LinuxProgramInfo stores information about ALL bpf programs loaded
+/// on a system.
+#[derive(Debug, Clone)]
+pub(crate) struct LinuxProgramInfo{ 
+    pub(crate) id: u32,
+    pub(crate) name: String,
+    pub(crate) program_type: u32,
+    pub(crate) loaded_at: u64,
+    pub(crate) tag: String,
+    pub(crate) gpl_compatible: bool,
+    pub(crate) map_ids: Vec<u32>,
+    pub(crate) btf_id: u32,
+    pub(crate) bytes_xlated: u32,
+    pub(crate) jited: bool,
+    pub(crate) bytes_jited: u32,
+    pub(crate) bytes_memlock: u32,
+    pub(crate) verified_insns: u32,
 }
 
 #[derive(Debug, Clone)]

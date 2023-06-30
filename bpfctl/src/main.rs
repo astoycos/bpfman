@@ -26,6 +26,9 @@ use log::{info, warn};
 use tokio::net::UnixStream;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Identity, Uri};
 use tower::service_fn;
+use chrono::prelude::DateTime;
+use chrono::Local;
+use std::time::{SystemTime, UNIX_EPOCH, Duration};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -186,7 +189,23 @@ impl ProgTable {
         let mut table = Table::new();
 
         table.load_preset(comfy_table::presets::NOTHING);
-        table.set_header(vec!["UUID", "Type", "Name", "Location", "Metadata"]);
+        table.set_header(vec!["UUID",
+            "Id",
+            "Type",
+            "Name",
+            "Location",
+            "Metadata",
+            "Loaded-At",
+            "Tag",
+            "Gpl-compatible",
+            "Map-ids",
+            "Btf-id",
+            "Bytes_xlated",
+            "Jited",
+            "Bytes_jited",
+            "Bytes_memlock",
+            "Verified_insns",
+            ]);
         ProgTable(table)
     }
 
@@ -194,11 +213,39 @@ impl ProgTable {
         &mut self,
         uuid: String,
         type_: String,
-        name: String,
         location: String,
         metadata: String,
-    ) {
-        self.0.add_row(vec![uuid, type_, name, location, metadata]);
+        info: list_response::ListResult,
+    ) { 
+
+        // let time_boot = std::time::Duration::from(nix::time::clock_gettime(nix::time::ClockId::CLOCK_BOOTTIME).unwrap()).as_nanos();
+        // let time_real = std::time::Duration::from(nix::time::clock_gettime(nix::time::ClockId::CLOCK_REALTIME).unwrap()).as_nanos();
+
+        let time_boot = nix::time::clock_gettime(nix::time::ClockId::CLOCK_BOOTTIME).unwrap();
+        let time_real = nix::time::clock_gettime(nix::time::ClockId::CLOCK_REALTIME).unwrap();
+
+        let wallclock_secs = (time_real.tv_sec() - time_boot.tv_sec()) + (time_real.tv_nsec() - time_boot.tv_nsec() + info.loaded_at as i64) / 1000000000;
+        let d = UNIX_EPOCH + Duration::from_secs(wallclock_secs as u64);
+
+        let loaded_at_str = DateTime::<Local>::from(d).format("%Y-%m-%dT%H:%M:%S%z").to_string();
+
+        self.0.add_row(vec![
+                uuid,
+                info.bpf_id.to_string(),
+                type_,
+                info.name.unwrap(),
+                location, metadata,
+                loaded_at_str,
+                info.tag,
+                info.gpl_compatible.to_string(),
+                format!("{:?}",info.map_ids),
+                info.btf_id.to_string(),
+                info.bytes_xlated.to_string(),
+                info.jited.to_string(),
+                info.bytes_jited.to_string(),
+                info.bytes_memlock.to_string(),
+                info.verified_insns.to_string()
+            ]);
     }
 
     fn add_response_prog(&mut self, r: list_response::ListResult) -> anyhow::Result<()> {
@@ -212,17 +259,18 @@ impl ProgTable {
                         position,
                         proceed_on,
                     },
-                )) = r.attach_info
+                )) = r.clone().attach_info
                 {
                     let proc_on = match XdpProceedOn::from_int32s(proceed_on) {
                         Ok(p) => p,
                         Err(e) => bail!("error parsing proceed_on {e}"),
                     };
-                    self.add_row(r.id.to_string(),
-				  "xdp".to_string(),
-				  r.section_name.unwrap(),
-				  r.location.unwrap().to_string(),
-				  format!(r#"{{ priority: {priority}, iface: {iface}, position: {position}, proceed_on: {proc_on} }}"#));
+                  self.add_row(r.clone().id.unwrap(),
+			  "xdp".to_string(),
+				  r.clone().location.unwrap().to_string(),
+				  format!(r#"{{ priority: {priority}, iface: {iface}, position: {position}, proceed_on: {proc_on} }}"#),
+                  r.clone()
+                );
                 }
             }
             ProgramType::Tc => {
@@ -232,35 +280,42 @@ impl ProgTable {
                     position,
                     direction,
                     proceed_on,
-                })) = r.attach_info
+                })) = r.clone().attach_info
                 {
                     let proc_on = match TcProceedOn::from_int32s(proceed_on) {
                         Ok(p) => p,
                         Err(e) => bail!("error parsing proceed_on {e}"),
                     };
-                    self.add_row(r.id.to_string(),
+                    self.add_row(r.clone().id.unwrap(),
 				  "tc".to_string(),
-				  r.section_name.unwrap(),
-				  r.location.unwrap().to_string(),
-				  format!(r#"{{ priority: {priority}, iface: {iface}, position: {position}, direction: {direction}, proceed_on: {proc_on} }}"#))
+				  r.clone().location.unwrap().to_string(),
+				  format!(r#"{{ priority: {priority}, iface: {iface}, position: {position}, direction: {direction}, proceed_on: {proc_on} }}"#),
+                r
+                    );
                 }
             }
             ProgramType::Tracepoint => {
                 if let Some(list_response::list_result::AttachInfo::TracepointAttachInfo(
                     TracepointAttachInfo { tracepoint },
-                )) = r.attach_info
+                )) = r.clone().attach_info
                 {
                     self.add_row(
-                        r.id.to_string(),
+                        r.clone().id.unwrap(),
                         "tracepoint".to_string(),
-                        r.section_name.unwrap(),
-                        r.location.unwrap().to_string(),
+                        r.clone().location.unwrap().to_string(),
                         format!(r#"{{ tracepoint: {tracepoint} }}"#),
+                        r.clone()
                     );
                 }
             }
             // skip unknown program types
-            _ => {}
+            _ => self.add_row(
+                "".to_owned(),
+                format!("{}", ProgramType::try_from(r.clone().program_type)?),
+                "".to_owned(),
+                "".to_owned(),
+                r.clone()
+                )
         }
         Ok(())
     }
@@ -558,11 +613,12 @@ async fn execute_request(command: &Commands, channel: Channel) -> anyhow::Result
             let _response = client.unload(request).await?.into_inner();
         }
         Commands::List {} => {
-            let request = tonic::Request::new(ListRequest { program_type: None });
+            let request = tonic::Request::new(ListRequest { program_type: None, bpfd_programs_only: Some(false)});
             let response = client.list(request).await?.into_inner();
             let mut table = ProgTable::new();
 
             for r in response.results {
+                info!("results {:?}", r);
                 if let Err(e) = table.add_response_prog(r) {
                     bail!(e)
                 }

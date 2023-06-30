@@ -76,3 +76,21 @@ pub(crate) async fn set_dir_permissions(directory: &str, mode: u32) {
         }
     }
 }
+
+pub(crate) fn bytes_to_string<T>(raw_bytes: &[T]) -> String
+where 
+    T: num::Num + num::Zero + num::NumCast + PartialOrd + Copy,
+ { 
+    let length = raw_bytes
+    .iter()
+    .rposition(|ch| *ch != num::zero())
+    .map(|pos| pos + 1)
+    .unwrap_or(0);
+
+
+    // The name field is defined as [std::os::raw::c_char; 16]. c_char may be signed or
+    // unsigned depending on the platform; that's why we're using from_raw_parts here
+    let raw_slice: &[u8] = unsafe { std::slice::from_raw_parts(raw_bytes.as_ptr() as *const _, length) };
+
+    String::from_utf8_lossy(raw_slice).to_string()
+}
