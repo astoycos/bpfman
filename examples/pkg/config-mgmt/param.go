@@ -51,11 +51,12 @@ const (
 )
 
 type ParameterData struct {
-	Iface     string
-	Priority  int
-	Direction int
-	CrdFlag   bool
-	Uuid      string
+	Iface       string
+	Priority    int
+	Direction   int
+	CrdFlag     bool
+	Uuid        string
+	MapProgUuid string
 	// The bytecodesource type has to be encapsulated in a complete LoadRequest because isLoadRequest_Location is not Public
 	BytecodeSource *gobpfd.LoadRequestCommon
 	BytecodeSrc    int
@@ -94,6 +95,9 @@ func ParseParamData(progType ProgType, configFilePath string, primaryBytecodeFil
 		flag.StringVar(&direction_str, "direction", "",
 			"Direction to apply program (ingress, egress). Required.")
 	}
+	flag.StringVar(&paramData.MapProgUuid, "map_prog_uuid", "",
+		"Uuid of loaded eBPF program this eBPF program will share a map with.\n"+
+			"Example: -map_prog_uuid 989958a5-b47b-47a5-8b4c-b5962292437d")
 	flag.Parse()
 
 	if paramData.CrdFlag {

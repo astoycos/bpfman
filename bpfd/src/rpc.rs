@@ -88,6 +88,7 @@ impl Loader for BpfdLoader {
                 proceed_on: XdpProceedOn::from_int32s(attach.proceed_on)
                     .map_err(|_| Status::aborted("failed to parse proceed_on"))?,
                 section_name: common.section_name,
+                map_prog_uuid: common.map_prog_uuid,
                 username,
             }),
             load_request::AttachInfo::TcAttachInfo(attach) => {
@@ -106,6 +107,7 @@ impl Loader for BpfdLoader {
                     proceed_on: TcProceedOn::from_int32s(attach.proceed_on)
                         .map_err(|_| Status::aborted("failed to parse proceed_on"))?,
                     section_name: common.section_name,
+                    map_prog_uuid: common.map_prog_uuid,
                     username,
                 })
             }
@@ -117,6 +119,7 @@ impl Loader for BpfdLoader {
                     location: bytecode_source,
                     tracepoint: attach.tracepoint,
                     section_name: common.section_name,
+                    map_prog_uuid: common.map_prog_uuid,
                     username,
                 })
             }
@@ -132,6 +135,7 @@ impl Loader for BpfdLoader {
                     pid: attach.pid,
                     _namespace: attach.namespace,
                     section_name: common.section_name,
+                    map_prog_uuid: common.map_prog_uuid,
                     username,
                 })
             }
@@ -328,6 +332,10 @@ impl Loader for BpfdLoader {
                             attach_info,
                             location: loc,
                             program_type,
+                            global_data: r.global_data.unwrap_or_default(),
+                            map_prog_uuid: r.map_prog_uuid.unwrap_or_default(),
+                            map_pin_path: r.map_pin_path.unwrap_or_default(),
+                            map_used_by: r.map_used_by.unwrap_or_default(),
                             bpf_id: r.kernel_info.id,
                             loaded_at: r.kernel_info.loaded_at,
                             tag: r.kernel_info.tag,

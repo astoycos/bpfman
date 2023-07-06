@@ -29,6 +29,7 @@ pub struct StaticProgramEntry {
     section_name: String,
     global_data: HashMap<String, Vec<u8>>,
     program_type: ProgramType,
+    map_pin_path: Option<String>,
     xdp_attach: Option<XdpAttachInfo>,
     tc_attach: Option<TcAttachInfo>,
     tracepoint_attach: Option<TracepointAttachInfo>,
@@ -117,6 +118,7 @@ pub(crate) async fn get_static_programs<P: AsRef<Path>>(
                                 program.section_name.clone(),
                                 program.global_data,
                                 String::from("bpfd"),
+                                program.map_pin_path,
                             )
                             .await?,
                             XdpProgramInfo {
@@ -141,6 +143,7 @@ pub(crate) async fn get_static_programs<P: AsRef<Path>>(
                                 program.section_name.clone(),
                                 program.global_data,
                                 String::from("bpfd"),
+                                program.map_pin_path,
                             )
                             .await?,
                             direction: m.direction,
@@ -164,6 +167,7 @@ pub(crate) async fn get_static_programs<P: AsRef<Path>>(
                                 program.section_name.clone(),
                                 program.global_data,
                                 String::from("bpfd"),
+                                program.map_pin_path,
                             )
                             .await?,
                             TracepointProgramInfo {

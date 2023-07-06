@@ -25,7 +25,6 @@ type Stats struct {
 
 const (
 	DefaultConfigPath     = "/etc/bpfd/bpfd.toml"
-	DefaultMapDir         = "/run/bpfd/fs/maps"
 	PrimaryByteCodeFile   = "/run/bpfd/examples/go-tc-counter/bpf_bpfel.o"
 	SecondaryByteCodeFile = "bpf_bpfel.o"
 	TcProgramName         = "go-tc-counter-example"
@@ -73,29 +72,30 @@ func main() {
 		mapPath = maps[BpfProgramMapIndex]
 
 	} else {
+		ctx := context.Background()
+
+		configFileData := configMgmt.LoadConfig(DefaultConfigPath)
+		creds, err := configMgmt.LoadTLSCredentials(configFileData.Tls)
+		if err != nil {
+			log.Printf("Failed to generate credentials for new client: %v", err)
+			return
+		}
+
+		// Set up a connection to the server.
+		conn, err := configMgmt.CreateConnection(configFileData.Grpc.Endpoints, ctx, creds)
+		if err != nil {
+			log.Printf("failed to create client connection: %v", err)
+			return
+		}
+		c := gobpfd.NewLoaderClient(conn)
+
 		// If the bytecode src is a UUID, skip the loading and unloading of the bytecode.
 		if paramData.BytecodeSrc != configMgmt.SrcUuid {
-			ctx := context.Background()
-
-			configFileData := configMgmt.LoadConfig(DefaultConfigPath)
-			creds, err := configMgmt.LoadTLSCredentials(configFileData.Tls)
-			if err != nil {
-				log.Printf("Failed to generate credentials for new client: %v", err)
-				return
-			}
-
-			// Set up a connection to the server.
-			conn, err := configMgmt.CreateConnection(configFileData.Grpc.Endpoints, ctx, creds)
-			if err != nil {
-				log.Printf("failed to create client connection: %v", err)
-				return
-			}
-			c := gobpfd.NewLoaderClient(conn)
-
 			loadRequestCommon := &gobpfd.LoadRequestCommon{
 				Location:    paramData.BytecodeSource.Location,
 				SectionName: "stats",
-				ProgramType: *bpfdHelpers.Xdp.Uint32(),
+				ProgramType: *bpfdHelpers.Tc.Uint32(),
+				MapProgUuid: &paramData.MapProgUuid,
 			}
 
 			loadRequest := &gobpfd.LoadRequest{
@@ -131,10 +131,38 @@ func main() {
 				}
 				conn.Close()
 			}(paramData.Uuid)
+		} else {
+			// 2. Set up defer to close connection
+			defer func(id string) {
+				log.Printf("Closing Connection for Program: %s\n", id)
+				conn.Close()
+			}(paramData.Uuid)
 		}
 
 		// 3. Get access to our map
-		mapPath = fmt.Sprintf("%s/%s/tc_stats_map", DefaultMapDir, paramData.Uuid)
+		listRequest := &gobpfd.ListRequest{
+			ProgramType: bpfdHelpers.Tc.Uint32(),
+		}
+		var listResponse *gobpfd.ListResponse
+		listResponse, err = c.List(ctx, listRequest)
+		if err != nil {
+			log.Printf("Unable to retrieve maps\n")
+			conn.Close()
+			log.Print(err)
+			return
+		}
+		results := listResponse.GetResults()
+		for _, result := range results {
+			if result.GetId() == paramData.Uuid {
+				mapPath = fmt.Sprintf("%s/tc_stats_map", result.GetMapPinPath())
+				break
+			}
+		}
+		if mapPath == "" {
+			log.Printf("Unable to map path\n")
+			conn.Close()
+			return
+		}
 	}
 
 	opts := &ebpf.LoadPinOptions{
