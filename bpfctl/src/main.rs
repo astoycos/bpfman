@@ -69,7 +69,7 @@ struct LoadFileArgs {
 
     /// Required: Name of the ELF section from the object file.
     #[clap(short, long)]
-    section_name: String,
+    name: String,
 
     /// Optional: Program uuid to be used by bpfd. If not specified, bpfd will generate
     /// a uuid.
@@ -109,7 +109,7 @@ struct LoadImageArgs {
 
     /// Optional: Name of the ELF section from the object file.
     #[clap(short, long, default_value = "")]
-    section_name: String,
+    name: String,
 
     /// Optional: Program uuid to be used by bpfd. If not specified, bpfd will generate
     /// a uuid.
@@ -513,7 +513,7 @@ impl LoadCommands {
 impl Commands {
     fn get_request_common(&self) -> anyhow::Result<Option<LoadRequestCommon>> {
         let id: &Option<String>;
-        let section_name: &String;
+        let name: &String;
         let global: &Option<Vec<GlobalArg>>;
         let command: &LoadCommands;
         let location: Option<load_request_common::Location>;
@@ -522,14 +522,14 @@ impl Commands {
         match self {
             Commands::LoadFromFile(l) => {
                 id = &l.id;
-                section_name = &l.section_name;
+                name = &l.name;
                 global = &l.global;
                 command = &l.command;
                 location = Some(load_request_common::Location::File(l.path.clone()));
             }
             Commands::LoadFromImage(l) => {
                 id = &l.id;
-                section_name = &l.section_name;
+                name = &l.name;
                 global = &l.global;
                 command = &l.command;
                 location = {
@@ -571,7 +571,7 @@ impl Commands {
         Ok(Some(LoadRequestCommon {
             id: id.clone(),
             location,
-            section_name: section_name.to_string(),
+            name: name.to_string(),
             program_type: command.get_prog_type() as u32,
             global_data,
         }))
@@ -762,7 +762,7 @@ async fn execute_request(command: &Commands, channel: Channel) -> anyhow::Result
                 .results
                 .iter()
                 .find(|r| r.bpf_id == *kernel_id)
-                .expect(&format!("No program with kernel ID {}", kernel_id));
+                .unwrap_or_else(|| panic!("No program with kernel ID {}", kernel_id));
 
             if let Err(e) = print_get(prog) {
                 bail!(e)

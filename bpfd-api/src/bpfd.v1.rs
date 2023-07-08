@@ -17,7 +17,7 @@ pub struct NoLocation {}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct LoadRequestCommon {
     #[prost(string, tag = "3")]
-    pub section_name: ::prost::alloc::string::String,
+    pub name: ::prost::alloc::string::String,
     #[prost(uint32, tag = "4")]
     pub program_type: u32,
     #[prost(string, optional, tag = "5")]

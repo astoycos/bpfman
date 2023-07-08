@@ -44,7 +44,7 @@ pub(crate) enum Command {
 #[derive(Debug)]
 pub(crate) struct LoadXDPArgs {
     pub(crate) location: Location,
-    pub(crate) section_name: String,
+    pub(crate) name: String,
     pub(crate) id: Option<Uuid>,
     pub(crate) global_data: HashMap<String, Vec<u8>>,
     pub(crate) iface: String,
@@ -57,7 +57,7 @@ pub(crate) struct LoadXDPArgs {
 #[derive(Debug)]
 pub(crate) struct LoadTCArgs {
     pub(crate) location: Location,
-    pub(crate) section_name: String,
+    pub(crate) name: String,
     pub(crate) id: Option<Uuid>,
     pub(crate) global_data: HashMap<String, Vec<u8>>,
     pub(crate) iface: String,
@@ -72,7 +72,7 @@ pub(crate) struct LoadTCArgs {
 pub(crate) struct LoadTracepointArgs {
     pub(crate) location: Location,
     pub(crate) id: Option<Uuid>,
-    pub(crate) section_name: String,
+    pub(crate) name: String,
     pub(crate) global_data: HashMap<String, Vec<u8>>,
     pub(crate) tracepoint: String,
     pub(crate) username: String,
@@ -83,7 +83,7 @@ pub(crate) struct LoadTracepointArgs {
 pub(crate) struct LoadUprobeArgs {
     pub(crate) location: Location,
     pub(crate) id: Option<Uuid>,
-    pub(crate) section_name: String,
+    pub(crate) name: String,
     pub(crate) global_data: HashMap<String, Vec<u8>>,
     pub(crate) fn_name: Option<String>,
     pub(crate) offset: Option<u64>,
@@ -299,7 +299,7 @@ impl UprobeProgram {
 #[derive(Serialize, Deserialize, Clone)]
 pub(crate) struct ProgramData {
     pub(crate) location: Location,
-    pub(crate) section_name: String,
+    pub(crate) name: String,
     pub(crate) global_data: HashMap<String, Vec<u8>>,
     pub(crate) path: String,
     pub(crate) owner: String,
@@ -309,7 +309,7 @@ pub(crate) struct ProgramData {
 impl ProgramData {
     pub(crate) async fn new(
         location: Location,
-        mut section_name: String,
+        mut name: String,
         global_data: HashMap<String, Vec<u8>>,
         owner: String,
     ) -> Result<Self, BpfdError> {
@@ -317,7 +317,7 @@ impl ProgramData {
             Location::File(l) => Ok(ProgramData {
                 location,
                 path: l,
-                section_name,
+                name,
                 owner,
                 global_data,
                 kernel_info: None,
@@ -331,19 +331,19 @@ impl ProgramData {
                 // If section name isn't provided and we're loading from a container
                 // image use the section name provided in the image metadata, otherwise
                 // always use the provided section name.
-                if section_name.is_empty() {
-                    section_name = program_overrides.image_meta.section_name
-                } else if program_overrides.image_meta.section_name != section_name {
+                if name.is_empty() {
+                    name = program_overrides.image_meta.name
+                } else if program_overrides.image_meta.name != name {
                     return Err(BpfdError::BytecodeMetaDataMismatch {
-                        image_sec_name: program_overrides.image_meta.section_name,
-                        provided_sec_name: section_name,
+                        image_sec_name: program_overrides.image_meta.name,
+                        provided_sec_name: name,
                     });
                 }
 
                 Ok(ProgramData {
                     location,
                     path: program_overrides.path,
-                    section_name,
+                    name,
                     global_data,
                     owner,
                     // this is populated when the programs bytecode in loaded into

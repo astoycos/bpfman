@@ -211,7 +211,7 @@ impl TcDispatcher {
 
                 let mut bpf = bpf
                     .map_pin_path(format!("{RTDIR_FS_MAPS}/{k}"))
-                    .extension(&v.data.section_name)
+                    .extension(&v.data.name)
                     .load(&program_bytes)
                     .map_err(BpfdError::BpfLoadError)?;
 

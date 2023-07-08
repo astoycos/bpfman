@@ -98,7 +98,7 @@ impl Loader for BpfdLoader {
                 priority: attach.priority,
                 proceed_on: XdpProceedOn::from_int32s(attach.proceed_on)
                     .map_err(|_| Status::aborted("failed to parse proceed_on"))?,
-                section_name: common.section_name,
+                name: common.name,
                 username,
             }),
             load_request::AttachInfo::TcAttachInfo(attach) => {
@@ -116,7 +116,7 @@ impl Loader for BpfdLoader {
                     direction,
                     proceed_on: TcProceedOn::from_int32s(attach.proceed_on)
                         .map_err(|_| Status::aborted("failed to parse proceed_on"))?,
-                    section_name: common.section_name,
+                    name: common.name,
                     username,
                 })
             }
@@ -127,7 +127,7 @@ impl Loader for BpfdLoader {
                     global_data: common.global_data,
                     location: bytecode_source,
                     tracepoint: attach.tracepoint,
-                    section_name: common.section_name,
+                    name: common.name,
                     username,
                 })
             }
@@ -142,7 +142,7 @@ impl Loader for BpfdLoader {
                     target: attach.target,
                     pid: attach.pid,
                     _namespace: attach.namespace,
-                    section_name: common.section_name,
+                    name: common.name,
                     username,
                 })
             }

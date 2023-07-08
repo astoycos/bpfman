@@ -174,17 +174,15 @@ impl BpfManager {
         };
 
         let mut ext_loader = BpfLoader::new()
-            .extension(&program.data().section_name)
+            .extension(&program.data().name)
             .map_pin_path(map_pin_path.clone())
             .load(&program_bytes)?;
 
-        match ext_loader.program_mut(&program.data().section_name) {
+        match ext_loader.program_mut(&program.data().name) {
             Some(_) => Ok(()),
             None => {
                 let _ = fs::remove_dir_all(map_pin_path).await;
-                Err(BpfdError::SectionNameNotValid(
-                    program.data().section_name.clone(),
-                ))
+                Err(BpfdError::SectionNameNotValid(program.data().name.clone()))
             }
         }?;
 
@@ -286,12 +284,9 @@ impl BpfManager {
             .map_pin_path(map_pin_path.clone())
             .load(&program_bytes)?;
 
-        let raw_program =
-            loader
-                .program_mut(&p.data().section_name)
-                .ok_or(BpfdError::SectionNameNotValid(
-                    p.data().section_name.clone(),
-                ))?;
+        let raw_program = loader
+            .program_mut(&p.data().name)
+            .ok_or(BpfdError::SectionNameNotValid(p.data().name.clone()))?;
 
         match p.clone() {
             Program::Tracepoint(program) => {
@@ -551,7 +546,7 @@ impl BpfManager {
                         prog_id,
                         ProgramInfo {
                             id: Some(*id),
-                            name: Some(p.data.section_name.to_string()),
+                            name: Some(p.data.name.to_string()),
                             program_type: Some(ProgramType::Xdp as u32),
                             location,
                             attach_info: Some(crate::command::AttachInfo::Xdp(
@@ -569,7 +564,7 @@ impl BpfManager {
                         prog_id,
                         ProgramInfo {
                             id: Some(*id),
-                            name: Some(p.data.section_name.to_string()),
+                            name: Some(p.data.name.to_string()),
                             location,
                             program_type: Some(ProgramType::Tracepoint as u32),
                             attach_info: Some(crate::command::AttachInfo::Tracepoint(
@@ -584,7 +579,7 @@ impl BpfManager {
                         prog_id,
                         ProgramInfo {
                             id: Some(*id),
-                            name: Some(p.data.section_name.to_string()),
+                            name: Some(p.data.name.to_string()),
                             location,
                             program_type: Some(ProgramType::Tc as u32),
                             attach_info: Some(crate::command::AttachInfo::Tc(
@@ -603,7 +598,7 @@ impl BpfManager {
                         prog_id,
                         ProgramInfo {
                             id: Some(*id),
-                            name: Some(p.data.section_name.to_string()),
+                            name: Some(p.data.name.to_string()),
                             location,
                             program_type: Some(ProgramType::Kprobe as u32),
                             attach_info: Some(crate::command::AttachInfo::Uprobe(
@@ -716,7 +711,7 @@ impl BpfManager {
         let res = if let Ok(if_index) = get_ifindex(&args.iface) {
             match ProgramData::new(
                 args.location,
-                args.section_name.clone(),
+                args.name.clone(),
                 args.global_data,
                 args.username,
             )
@@ -731,7 +726,7 @@ impl BpfManager {
                             metadata: command::Metadata {
                                 priority: args.priority,
                                 // This could have been overridden by image tags
-                                name: prog_data.section_name,
+                                name: prog_data.name,
                                 attached: false,
                             },
                             proceed_on: args.proceed_on,
@@ -759,13 +754,7 @@ impl BpfManager {
 
     async fn load_tc_command(&mut self, args: LoadTCArgs) -> anyhow::Result<()> {
         let res = if let Ok(if_index) = get_ifindex(&args.iface) {
-            match ProgramData::new(
-                args.location,
-                args.section_name,
-                args.global_data,
-                args.username,
-            )
-            .await
+            match ProgramData::new(args.location, args.name, args.global_data, args.username).await
             {
                 Ok(prog_data) => {
                     let prog = Program::Tc(TcProgram {
@@ -777,7 +766,7 @@ impl BpfManager {
                             metadata: command::Metadata {
                                 priority: args.priority,
                                 // This could have been overridden by image tags
-                                name: prog_data.section_name,
+                                name: prog_data.name,
                                 attached: false,
                             },
                             proceed_on: args.proceed_on,
@@ -805,13 +794,7 @@ impl BpfManager {
 
     async fn load_tracepoint_command(&mut self, args: LoadTracepointArgs) -> anyhow::Result<()> {
         let res = {
-            match ProgramData::new(
-                args.location,
-                args.section_name,
-                args.global_data,
-                args.username,
-            )
-            .await
+            match ProgramData::new(args.location, args.name, args.global_data, args.username).await
             {
                 Ok(prog_data) => {
                     let prog = Program::Tracepoint(TracepointProgram {
@@ -839,13 +822,7 @@ impl BpfManager {
 
     async fn load_uprobe_command(&mut self, args: LoadUprobeArgs) -> anyhow::Result<()> {
         let res = {
-            match ProgramData::new(
-                args.location,
-                args.section_name,
-                args.global_data,
-                args.username,
-            )
-            .await
+            match ProgramData::new(args.location, args.name, args.global_data, args.username).await
             {
                 Ok(prog_data) => {
                     let prog = Program::Uprobe(UprobeProgram {

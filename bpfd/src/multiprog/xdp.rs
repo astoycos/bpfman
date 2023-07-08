@@ -85,7 +85,7 @@ impl XdpDispatcher {
             .load(&program_bytes)?;
 
         let dispatcher: &mut Xdp = loader
-            .program_mut(&overrides.image_meta.section_name)
+            .program_mut(&overrides.image_meta.name)
             .unwrap()
             .try_into()?;
 
@@ -100,7 +100,7 @@ impl XdpDispatcher {
             revision,
             mode,
             loader: Some(loader),
-            progam_name: Some(overrides.image_meta.section_name.clone()),
+            progam_name: Some(overrides.image_meta.name.clone()),
         };
         dispatcher.attach_extensions(&mut extensions).await?;
         dispatcher.attach()?;
@@ -192,7 +192,7 @@ impl XdpDispatcher {
 
                 let mut bpf = bpf
                     .map_pin_path(format!("{RTDIR_FS_MAPS}/{k}"))
-                    .extension(&v.data.section_name)
+                    .extension(&v.data.name)
                     .load(&program_bytes)
                     .map_err(BpfdError::BpfLoadError)?;
 
