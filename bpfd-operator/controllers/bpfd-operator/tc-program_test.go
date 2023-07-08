@@ -39,24 +39,24 @@ import (
 
 func TestTcProgramReconcile(t *testing.T) {
 	var (
-		name         = "fakeTcProgram"
+		tcProgName   = "fakeTcProgram"
 		bytecodePath = "/tmp/hello.o"
-		sectionName  = "test"
+		progName     = "test"
 		direction    = "ingress"
 		fakeNode     = testutils.NewNode("fake-control-plane")
 		fakeInt      = "eth0"
 		ctx          = context.TODO()
-		bpfProgName  = fmt.Sprintf("%s-%s", name, fakeNode.Name)
+		bpfProgName  = fmt.Sprintf("%s-%s", tcProgName, fakeNode.Name)
 	)
 
 	// A TcProgram object with metadata and spec.
 	tc := &bpfdiov1alpha1.TcProgram{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name: tcProgName,
 		},
 		Spec: bpfdiov1alpha1.TcProgramSpec{
 			BpfProgramCommon: bpfdiov1alpha1.BpfProgramCommon{
-				SectionName:  sectionName,
+				Name:         progName,
 				NodeSelector: metav1.LabelSelector{},
 				ByteCode: bpfdiov1alpha1.BytecodeSelector{
 					Path: &bytecodePath,
@@ -124,7 +124,7 @@ func TestTcProgramReconcile(t *testing.T) {
 	// watched resource .
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
-			Name: name,
+			Name: tcProgName,
 		},
 	}
 

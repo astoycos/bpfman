@@ -45,26 +45,26 @@ import (
 
 func TestTcProgramControllerCreate(t *testing.T) {
 	var (
-		name         = "fakeTcProgram"
+		tcProgName   = "fakeTcProgram"
 		namespace    = "bpfd"
 		bytecodePath = "/tmp/hello.o"
-		sectionName  = "test"
+		progName     = "test"
 		direction    = "ingress"
 		fakeNode     = testutils.NewNode("fake-control-plane")
 		fakeInt      = "eth0"
 		ctx          = context.TODO()
-		bpfProgName  = fmt.Sprintf("%s-%s-%s", name, fakeNode.Name, fakeInt)
+		bpfProgName  = fmt.Sprintf("%s-%s-%s", tcProgName, fakeNode.Name, fakeInt)
 		bpfProg      = &bpfdiov1alpha1.BpfProgram{}
 		fakeUID      = "ef71d42c-aa21-48e8-a697-82391d801a81"
 	)
 	// A TcProgram object with metadata and spec.
 	tc := &bpfdiov1alpha1.TcProgram{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name: tcProgName,
 		},
 		Spec: bpfdiov1alpha1.TcProgramSpec{
 			BpfProgramCommon: bpfdiov1alpha1.BpfProgramCommon{
-				SectionName:  sectionName,
+				Name:         progName,
 				NodeSelector: metav1.LabelSelector{},
 				ByteCode: bpfdiov1alpha1.BytecodeSelector{
 					Path: &bytecodePath,
@@ -116,7 +116,7 @@ func TestTcProgramControllerCreate(t *testing.T) {
 	// watched resource .
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
-			Name:      name,
+			Name:      tcProgName,
 			Namespace: namespace,
 		},
 	}
@@ -133,7 +133,7 @@ func TestTcProgramControllerCreate(t *testing.T) {
 
 	require.NotEmpty(t, bpfProg)
 	// owningConfig Label was correctly set
-	require.Equal(t, bpfProg.Labels[internal.BpfProgramOwnerLabel], name)
+	require.Equal(t, bpfProg.Labels[internal.BpfProgramOwnerLabel], tcProgName)
 	// node Label was correctly set
 	require.Equal(t, bpfProg.Labels[internal.K8sHostLabel], fakeNode.Name)
 	// Finalizer is written
@@ -164,7 +164,7 @@ func TestTcProgramControllerCreate(t *testing.T) {
 			Location: &gobpfd.LoadRequestCommon_File{
 				File: bytecodePath,
 			},
-			SectionName: sectionName,
+			Name:        progName,
 			ProgramType: *internal.Tc.Uint32(),
 			Id:          &id,
 		},
@@ -208,16 +208,16 @@ func TestTcProgramControllerCreate(t *testing.T) {
 
 func TestTcProgramControllerCreateMultiIntf(t *testing.T) {
 	var (
-		name         = "fakeTcProgram"
+		tcProgName   = "fakeTcProgram"
 		namespace    = "bpfd"
 		bytecodePath = "/tmp/hello.o"
-		sectionName  = "test"
+		progName     = "test"
 		direction    = "ingress"
 		fakeNode     = testutils.NewNode("fake-control-plane")
 		fakeInts     = []string{"eth0", "eth1"}
 		ctx          = context.TODO()
-		bpfProgName0 = fmt.Sprintf("%s-%s-%s", name, fakeNode.Name, fakeInts[0])
-		bpfProgName1 = fmt.Sprintf("%s-%s-%s", name, fakeNode.Name, fakeInts[1])
+		bpfProgName0 = fmt.Sprintf("%s-%s-%s", tcProgName, fakeNode.Name, fakeInts[0])
+		bpfProgName1 = fmt.Sprintf("%s-%s-%s", tcProgName, fakeNode.Name, fakeInts[1])
 		bpfProgEth0  = &bpfdiov1alpha1.BpfProgram{}
 		bpfProgEth1  = &bpfdiov1alpha1.BpfProgram{}
 		fakeUID0     = "ef71d42c-aa21-48e8-a697-82391d801a80"
@@ -226,11 +226,11 @@ func TestTcProgramControllerCreateMultiIntf(t *testing.T) {
 	// A TcProgram object with metadata and spec.
 	tc := &bpfdiov1alpha1.TcProgram{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name: tcProgName,
 		},
 		Spec: bpfdiov1alpha1.TcProgramSpec{
 			BpfProgramCommon: bpfdiov1alpha1.BpfProgramCommon{
-				SectionName:  sectionName,
+				Name:         progName,
 				NodeSelector: metav1.LabelSelector{},
 				ByteCode: bpfdiov1alpha1.BytecodeSelector{
 					Path: &bytecodePath,
@@ -282,7 +282,7 @@ func TestTcProgramControllerCreateMultiIntf(t *testing.T) {
 	// watched resource .
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
-			Name:      name,
+			Name:      tcProgName,
 			Namespace: namespace,
 		},
 	}
@@ -299,7 +299,7 @@ func TestTcProgramControllerCreateMultiIntf(t *testing.T) {
 
 	require.NotEmpty(t, bpfProgEth0)
 	// owningConfig Label was correctly set
-	require.Equal(t, bpfProgEth0.Labels[internal.BpfProgramOwnerLabel], name)
+	require.Equal(t, bpfProgEth0.Labels[internal.BpfProgramOwnerLabel], tcProgName)
 	// node Label was correctly set
 	require.Equal(t, bpfProgEth0.Labels[internal.K8sHostLabel], fakeNode.Name)
 	// Finalizer is written
@@ -326,7 +326,7 @@ func TestTcProgramControllerCreateMultiIntf(t *testing.T) {
 
 	require.NotEmpty(t, bpfProgEth1)
 	// owningConfig Label was correctly set
-	require.Equal(t, bpfProgEth1.Labels[internal.BpfProgramOwnerLabel], name)
+	require.Equal(t, bpfProgEth1.Labels[internal.BpfProgramOwnerLabel], tcProgName)
 	// node Label was correctly set
 	require.Equal(t, bpfProgEth1.Labels[internal.K8sHostLabel], fakeNode.Name)
 	// Finalizer is written
@@ -366,7 +366,7 @@ func TestTcProgramControllerCreateMultiIntf(t *testing.T) {
 			Location: &gobpfd.LoadRequestCommon_File{
 				File: bytecodePath,
 			},
-			SectionName: sectionName,
+			Name:        progName,
 			ProgramType: *internal.Tc.Uint32(),
 			Id:          &id0,
 		},
@@ -387,7 +387,7 @@ func TestTcProgramControllerCreateMultiIntf(t *testing.T) {
 			Location: &gobpfd.LoadRequestCommon_File{
 				File: bytecodePath,
 			},
-			SectionName: sectionName,
+			Name:        progName,
 			ProgramType: *internal.Tc.Uint32(),
 			Id:          &id1,
 		},

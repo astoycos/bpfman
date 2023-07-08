@@ -39,22 +39,22 @@ import (
 
 func TestXdpProgramReconcile(t *testing.T) {
 	var (
-		name         = "fakeXdpProgram"
+		xdpProgName  = "fakeXdpProgram"
 		bytecodePath = "/tmp/hello.o"
-		sectionName  = "test"
+		progName     = "test"
 		fakeNode     = testutils.NewNode("fake-control-plane")
 		fakeInt      = "eth0"
 		ctx          = context.TODO()
-		bpfProgName  = fmt.Sprintf("%s-%s", name, fakeNode.Name)
+		bpfProgName  = fmt.Sprintf("%s-%s", xdpProgName, fakeNode.Name)
 	)
 	// A XdpProgram object with metadata and spec.
 	Xdp := &bpfdiov1alpha1.XdpProgram{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name: xdpProgName,
 		},
 		Spec: bpfdiov1alpha1.XdpProgramSpec{
 			BpfProgramCommon: bpfdiov1alpha1.BpfProgramCommon{
-				SectionName:  sectionName,
+				Name:         progName,
 				NodeSelector: metav1.LabelSelector{},
 				ByteCode: bpfdiov1alpha1.BytecodeSelector{
 					Path: &bytecodePath,
@@ -119,7 +119,7 @@ func TestXdpProgramReconcile(t *testing.T) {
 	// watched resource .
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
-			Name: name,
+			Name: xdpProgName,
 		},
 	}
 

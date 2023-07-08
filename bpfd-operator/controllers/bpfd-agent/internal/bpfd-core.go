@@ -94,11 +94,11 @@ func GetBytecode(c client.Client, b *bpfdiov1alpha1.BytecodeSelector) (interface
 	}
 }
 
-func BuildBpfdCommon(bytecode interface{}, sectionName string, programType internal.SupportedProgramType, Id string, globalData map[string][]byte) *gobpfd.LoadRequestCommon {
+func BuildBpfdCommon(bytecode interface{}, name string, programType internal.SupportedProgramType, Id string, globalData map[string][]byte) *gobpfd.LoadRequestCommon {
 	if imageBytecode, ok := bytecode.(*gobpfd.LoadRequestCommon_Image); ok {
 		return &gobpfd.LoadRequestCommon{
 			Location:    imageBytecode,
-			SectionName: sectionName,
+			Name:        name,
 			ProgramType: *programType.Uint32(),
 			Id:          &Id,
 			GlobalData:  globalData,
@@ -108,7 +108,7 @@ func BuildBpfdCommon(bytecode interface{}, sectionName string, programType inter
 	if fileBytecode, ok := bytecode.(*gobpfd.LoadRequestCommon_File); ok {
 		return &gobpfd.LoadRequestCommon{
 			Location:    fileBytecode,
-			SectionName: sectionName,
+			Name:        name,
 			ProgramType: *programType.Uint32(),
 			Id:          &Id,
 			GlobalData:  globalData,

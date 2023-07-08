@@ -44,25 +44,25 @@ import (
 
 func TestTracepointProgramControllerCreate(t *testing.T) {
 	var (
-		name           = "fakeTracepointProgram"
-		namespace      = "bpfd"
-		bytecodePath   = "/tmp/hello.o"
-		sectionName    = "test"
-		tracepointName = "syscalls/sys_enter_setitimer"
-		fakeNode       = testutils.NewNode("fake-control-plane")
-		ctx            = context.TODO()
-		bpfProgName    = fmt.Sprintf("%s-%s-%s", name, fakeNode.Name, "syscalls-sys-enter-setitimer")
-		bpfProg        = &bpfdiov1alpha1.BpfProgram{}
-		fakeUID        = "ef71d42c-aa21-48e8-a697-82391d801a81"
+		tracepointProgName = "fakeTracepointProgram"
+		namespace          = "bpfd"
+		bytecodePath       = "/tmp/hello.o"
+		progName           = "test"
+		tracepointName     = "syscalls/sys_enter_setitimer"
+		fakeNode           = testutils.NewNode("fake-control-plane")
+		ctx                = context.TODO()
+		bpfProgName        = fmt.Sprintf("%s-%s-%s", tracepointProgName, fakeNode.Name, "syscalls-sys-enter-setitimer")
+		bpfProg            = &bpfdiov1alpha1.BpfProgram{}
+		fakeUID            = "ef71d42c-aa21-48e8-a697-82391d801a81"
 	)
 	// A TracepointProgram object with metadata and spec.
 	Tracepoint := &bpfdiov1alpha1.TracepointProgram{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name: tracepointProgName,
 		},
 		Spec: bpfdiov1alpha1.TracepointProgramSpec{
 			BpfProgramCommon: bpfdiov1alpha1.BpfProgramCommon{
-				SectionName:  sectionName,
+				Name:         progName,
 				NodeSelector: metav1.LabelSelector{},
 				ByteCode: bpfdiov1alpha1.BytecodeSelector{
 					Path: &bytecodePath,
@@ -106,7 +106,7 @@ func TestTracepointProgramControllerCreate(t *testing.T) {
 	// watched resource .
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
-			Name:      name,
+			Name:      tracepointProgName,
 			Namespace: namespace,
 		},
 	}
@@ -125,7 +125,7 @@ func TestTracepointProgramControllerCreate(t *testing.T) {
 	// Finalizer is written
 	require.Equal(t, r.getFinalizer(), bpfProg.Finalizers[0])
 	// owningConfig Label was correctly set
-	require.Equal(t, bpfProg.Labels[internal.BpfProgramOwnerLabel], name)
+	require.Equal(t, bpfProg.Labels[internal.BpfProgramOwnerLabel], tracepointProgName)
 	// node Label was correctly set
 	require.Equal(t, bpfProg.Labels[internal.K8sHostLabel], fakeNode.Name)
 	// Type is set
@@ -154,7 +154,7 @@ func TestTracepointProgramControllerCreate(t *testing.T) {
 			Location: &gobpfd.LoadRequestCommon_File{
 				File: bytecodePath,
 			},
-			SectionName: sectionName,
+			Name:        progName,
 			ProgramType: *internal.Tracepoint.Uint32(),
 			Id:          &id,
 		},

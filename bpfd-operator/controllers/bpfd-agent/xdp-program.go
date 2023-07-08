@@ -197,7 +197,7 @@ func (r *XdpProgramReconciler) reconcileBpfdProgram(ctx context.Context,
 	loadRequest := &gobpfd.LoadRequest{}
 	var err error
 	id := string(bpfProgram.UID)
-	loadRequest.Common = bpfdagentinternal.BuildBpfdCommon(bytecode, r.currentXdpProgram.Spec.SectionName, internal.Xdp, id, r.currentXdpProgram.Spec.GlobalData)
+	loadRequest.Common = bpfdagentinternal.BuildBpfdCommon(bytecode, r.currentXdpProgram.Spec.Name, internal.Xdp, id, r.currentXdpProgram.Spec.GlobalData)
 
 	loadRequest.AttachInfo = &gobpfd.LoadRequest_XdpAttachInfo{
 		XdpAttachInfo: &gobpfd.XDPAttachInfo{

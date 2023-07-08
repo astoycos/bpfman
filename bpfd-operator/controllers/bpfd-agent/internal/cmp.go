@@ -27,7 +27,7 @@ import (
 func DoesProgExist(actual *gobpfd.ListResponse_ListResult, expected *gobpfd.LoadRequest) bool {
 	// Check equality of all common fields
 	if actual.Id != expected.Common.Id ||
-		actual.Name != expected.Common.SectionName ||
+		actual.Name != expected.Common.Name ||
 		actual.ProgramType != expected.Common.ProgramType {
 		return false
 	}

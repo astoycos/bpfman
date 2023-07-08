@@ -44,25 +44,25 @@ import (
 
 func TestXdpProgramControllerCreate(t *testing.T) {
 	var (
-		name         = "fakeXdpProgram"
+		xdpProgName  = "fakeXdpProgram"
 		namespace    = "bpfd"
 		bytecodePath = "/tmp/hello.o"
-		sectionName  = "test"
+		progName     = "test"
 		fakeNode     = testutils.NewNode("fake-control-plane")
 		fakeInt      = "eth0"
 		ctx          = context.TODO()
-		bpfProgName  = fmt.Sprintf("%s-%s-%s", name, fakeNode.Name, fakeInt)
+		bpfProgName  = fmt.Sprintf("%s-%s-%s", xdpProgName, fakeNode.Name, fakeInt)
 		bpfProg      = &bpfdiov1alpha1.BpfProgram{}
 		fakeUID      = "ef71d42c-aa21-48e8-a697-82391d801a81"
 	)
 	// A XdpProgram object with metadata and spec.
 	Xdp := &bpfdiov1alpha1.XdpProgram{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name: xdpProgName,
 		},
 		Spec: bpfdiov1alpha1.XdpProgramSpec{
 			BpfProgramCommon: bpfdiov1alpha1.BpfProgramCommon{
-				SectionName:  sectionName,
+				Name:         progName,
 				NodeSelector: metav1.LabelSelector{},
 				ByteCode: bpfdiov1alpha1.BytecodeSelector{
 					Path: &bytecodePath,
@@ -111,7 +111,7 @@ func TestXdpProgramControllerCreate(t *testing.T) {
 	// watched resource .
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
-			Name:      name,
+			Name:      xdpProgName,
 			Namespace: namespace,
 		},
 	}
@@ -130,7 +130,7 @@ func TestXdpProgramControllerCreate(t *testing.T) {
 	// Finalizer is written
 	require.Equal(t, r.getFinalizer(), bpfProg.Finalizers[0])
 	// owningConfig Label was correctly set
-	require.Equal(t, bpfProg.Labels[internal.BpfProgramOwnerLabel], name)
+	require.Equal(t, bpfProg.Labels[internal.BpfProgramOwnerLabel], xdpProgName)
 	// node Label was correctly set
 	require.Equal(t, bpfProg.Labels[internal.K8sHostLabel], fakeNode.Name)
 	// Type is set
@@ -159,7 +159,7 @@ func TestXdpProgramControllerCreate(t *testing.T) {
 			Location: &gobpfd.LoadRequestCommon_File{
 				File: bytecodePath,
 			},
-			SectionName: sectionName,
+			Name:        progName,
 			ProgramType: *internal.Xdp.Uint32(),
 			Id:          &id,
 		},
@@ -201,15 +201,15 @@ func TestXdpProgramControllerCreate(t *testing.T) {
 
 func TestXdpProgramControllerCreateMultiIntf(t *testing.T) {
 	var (
-		name         = "fakeXdpProgram"
+		xdpProgName  = "fakeXdpProgram"
 		namespace    = "bpfd"
 		bytecodePath = "/tmp/hello.o"
-		sectionName  = "test"
+		progName     = "test"
 		fakeNode     = testutils.NewNode("fake-control-plane")
 		fakeInts     = []string{"eth0", "eth1"}
 		ctx          = context.TODO()
-		bpfProgName0 = fmt.Sprintf("%s-%s-%s", name, fakeNode.Name, fakeInts[0])
-		bpfProgName1 = fmt.Sprintf("%s-%s-%s", name, fakeNode.Name, fakeInts[1])
+		bpfProgName0 = fmt.Sprintf("%s-%s-%s", xdpProgName, fakeNode.Name, fakeInts[0])
+		bpfProgName1 = fmt.Sprintf("%s-%s-%s", xdpProgName, fakeNode.Name, fakeInts[1])
 		bpfProgEth0  = &bpfdiov1alpha1.BpfProgram{}
 		bpfProgEth1  = &bpfdiov1alpha1.BpfProgram{}
 		fakeUID0     = "ef71d42c-aa21-48e8-a697-82391d801a80"
@@ -218,11 +218,11 @@ func TestXdpProgramControllerCreateMultiIntf(t *testing.T) {
 	// A XdpProgram object with metadata and spec.
 	xdp := &bpfdiov1alpha1.XdpProgram{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name: xdpProgName,
 		},
 		Spec: bpfdiov1alpha1.XdpProgramSpec{
 			BpfProgramCommon: bpfdiov1alpha1.BpfProgramCommon{
-				SectionName:  sectionName,
+				Name:         progName,
 				NodeSelector: metav1.LabelSelector{},
 				ByteCode: bpfdiov1alpha1.BytecodeSelector{
 					Path: &bytecodePath,
@@ -272,7 +272,7 @@ func TestXdpProgramControllerCreateMultiIntf(t *testing.T) {
 	// watched resource .
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
-			Name:      name,
+			Name:      xdpProgName,
 			Namespace: namespace,
 		},
 	}
@@ -289,7 +289,7 @@ func TestXdpProgramControllerCreateMultiIntf(t *testing.T) {
 
 	require.NotEmpty(t, bpfProgEth0)
 	// owningConfig Label was correctly set
-	require.Equal(t, bpfProgEth0.Labels[internal.BpfProgramOwnerLabel], name)
+	require.Equal(t, bpfProgEth0.Labels[internal.BpfProgramOwnerLabel], xdpProgName)
 	// node Label was correctly set
 	require.Equal(t, bpfProgEth0.Labels[internal.K8sHostLabel], fakeNode.Name)
 	// Finalizer is written
@@ -316,7 +316,7 @@ func TestXdpProgramControllerCreateMultiIntf(t *testing.T) {
 
 	require.NotEmpty(t, bpfProgEth1)
 	// owningConfig Label was correctly set
-	require.Equal(t, bpfProgEth1.Labels[internal.BpfProgramOwnerLabel], name)
+	require.Equal(t, bpfProgEth1.Labels[internal.BpfProgramOwnerLabel], xdpProgName)
 	// node Label was correctly set
 	require.Equal(t, bpfProgEth1.Labels[internal.K8sHostLabel], fakeNode.Name)
 	// Finalizer is written
@@ -356,7 +356,7 @@ func TestXdpProgramControllerCreateMultiIntf(t *testing.T) {
 			Location: &gobpfd.LoadRequestCommon_File{
 				File: bytecodePath,
 			},
-			SectionName: sectionName,
+			Name:        progName,
 			ProgramType: *internal.Xdp.Uint32(),
 			Id:          &id0,
 		},
@@ -376,7 +376,7 @@ func TestXdpProgramControllerCreateMultiIntf(t *testing.T) {
 			Location: &gobpfd.LoadRequestCommon_File{
 				File: bytecodePath,
 			},
-			SectionName: sectionName,
+			Name:        progName,
 			ProgramType: *internal.Xdp.Uint32(),
 			Id:          &id1,
 		},

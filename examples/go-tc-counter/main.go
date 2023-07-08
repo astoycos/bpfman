@@ -94,7 +94,7 @@ func main() {
 
 			loadRequestCommon := &gobpfd.LoadRequestCommon{
 				Location:    paramData.BytecodeSource.Location,
-				SectionName: "stats",
+				Name: "stats",
 				ProgramType: *bpfdHelpers.Xdp.Uint32(),
 			}
 

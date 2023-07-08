@@ -211,7 +211,7 @@ func (r *TcProgramReconciler) reconcileBpfdProgram(ctx context.Context,
 	loadRequest := &gobpfd.LoadRequest{}
 	var err error
 	id := string(bpfProgram.UID)
-	loadRequest.Common = bpfdagentinternal.BuildBpfdCommon(bytecode, r.currentTcProgram.Spec.SectionName, internal.Tc, string(id), r.currentTcProgram.Spec.GlobalData)
+	loadRequest.Common = bpfdagentinternal.BuildBpfdCommon(bytecode, r.currentTcProgram.Spec.Name, internal.Tc, string(id), r.currentTcProgram.Spec.GlobalData)
 
 	loadRequest.AttachInfo = &gobpfd.LoadRequest_TcAttachInfo{
 		TcAttachInfo: &gobpfd.TCAttachInfo{

@@ -215,8 +215,7 @@ spec:
                 maxItems: 11
                 type: array
               sectionname:
-                description: SectionName is the the section name described in the
-                  bpf Program
+                description: Name is the name of the bpf Program
                 type: string
             required:
             - bytecode

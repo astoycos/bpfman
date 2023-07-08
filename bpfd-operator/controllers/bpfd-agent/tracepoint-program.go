@@ -166,7 +166,7 @@ func (r *TracepointProgramReconciler) reconcileBpfdProgram(ctx context.Context,
 	loadRequest := &gobpfd.LoadRequest{}
 	id := string(bpfProgram.UID)
 
-	loadRequest.Common = bpfdagentinternal.BuildBpfdCommon(bytecode, r.currentTracepointProgram.Spec.SectionName, internal.Tracepoint, id, r.currentTracepointProgram.Spec.GlobalData)
+	loadRequest.Common = bpfdagentinternal.BuildBpfdCommon(bytecode, r.currentTracepointProgram.Spec.Name, internal.Tracepoint, id, r.currentTracepointProgram.Spec.GlobalData)
 
 	loadRequest.AttachInfo = &gobpfd.LoadRequest_TracepointAttachInfo{
 		TracepointAttachInfo: &gobpfd.TracepointAttachInfo{
