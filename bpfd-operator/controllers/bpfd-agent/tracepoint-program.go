@@ -160,13 +160,21 @@ func (r *TracepointProgramReconciler) reconcileBpfdProgram(ctx context.Context,
 	bytecode interface{},
 	bpfProgram *bpfdiov1alpha1.BpfProgram,
 	isNodeSelected bool,
-	isBeingDeleted bool) (bpfdiov1alpha1.BpfProgramConditionType, error) {
+	isBeingDeleted bool,
+	mapOwnerStatus *MapOwnerParamStatus) (bpfdiov1alpha1.BpfProgramConditionType, error) {
 
 	r.Logger.V(1).Info("Existing bpfProgram", "ExistingMaps", bpfProgram.Spec.Maps, "UUID", bpfProgram.UID, "Name", bpfProgram.Name, "CurrentTracepointProgram", r.currentTracepointProgram.Name)
 	loadRequest := &gobpfd.LoadRequest{}
 	id := string(bpfProgram.UID)
 
-	loadRequest.Common = bpfdagentinternal.BuildBpfdCommon(bytecode, r.currentTracepointProgram.Spec.SectionName, internal.Tracepoint, id, r.currentTracepointProgram.Spec.GlobalData)
+	loadRequest.Common = bpfdagentinternal.BuildBpfdCommon(
+		bytecode,
+		r.currentTracepointProgram.Spec.SectionName,
+		internal.Tracepoint,
+		id,
+		r.currentTracepointProgram.Spec.GlobalData,
+		mapOwnerStatus.mapOwnerUuid,
+	)
 
 	loadRequest.AttachInfo = &gobpfd.LoadRequest_TracepointAttachInfo{
 		TracepointAttachInfo: &gobpfd.TracepointAttachInfo{
@@ -188,6 +196,16 @@ func (r *TracepointProgramReconciler) reconcileBpfdProgram(ctx context.Context,
 			return bpfdiov1alpha1.BpfProgCondNotSelected, nil
 		}
 
+		// Make sure if the Map Owner is set but not found then just exit
+		if mapOwnerStatus.isSet && !mapOwnerStatus.isFound {
+			return bpfdiov1alpha1.BpfProgCondMapOwnerNotFound, nil
+		}
+
+		// Make sure if the Map Owner is set but not loaded then just exit
+		if mapOwnerStatus.isSet && !mapOwnerStatus.isLoaded {
+			return bpfdiov1alpha1.BpfProgCondMapOwnerNotLoaded, nil
+		}
+
 		// otherwise load it
 		bpfProgramEntry, err := bpfdagentinternal.LoadBpfdProgram(ctx, r.BpfdClient, loadRequest)
 		if err != nil {
@@ -202,9 +220,11 @@ func (r *TracepointProgramReconciler) reconcileBpfdProgram(ctx context.Context,
 
 	// BpfProgram exists but either TracepointProgram is being deleted or node is no
 	// longer selected....unload program
-	if isBeingDeleted || !isNodeSelected {
+	if isBeingDeleted || !isNodeSelected ||
+		(mapOwnerStatus.isSet && (!mapOwnerStatus.isFound || !mapOwnerStatus.isLoaded)) {
 		r.Logger.V(1).Info("TracepointProgram exists on Node but is scheduled for deletion or node is no longer selected", "isDeleted", isBeingDeleted,
 			"isSelected", isNodeSelected)
+
 		if err := bpfdagentinternal.UnloadBpfdProgram(ctx, r.BpfdClient, id); err != nil {
 			r.Logger.Error(err, "Failed to unload TracepointProgram")
 			return bpfdiov1alpha1.BpfProgCondNotUnloaded, nil
@@ -215,7 +235,17 @@ func (r *TracepointProgramReconciler) reconcileBpfdProgram(ctx context.Context,
 			return bpfdiov1alpha1.BpfProgCondUnloaded, nil
 		}
 
-		return bpfdiov1alpha1.BpfProgCondNotSelected, nil
+		if !isNodeSelected {
+			return bpfdiov1alpha1.BpfProgCondNotSelected, nil
+		}
+
+		if mapOwnerStatus.isSet && !mapOwnerStatus.isFound {
+			return bpfdiov1alpha1.BpfProgCondMapOwnerNotFound, nil
+		}
+
+		if mapOwnerStatus.isSet && !mapOwnerStatus.isLoaded {
+			return bpfdiov1alpha1.BpfProgCondMapOwnerNotLoaded, nil
+		}
 	}
 
 	r.Logger.V(1).WithValues("expectedProgram", loadRequest).WithValues("existingProgram", existingProgram).Info("StateMatch")
@@ -223,6 +253,7 @@ func (r *TracepointProgramReconciler) reconcileBpfdProgram(ctx context.Context,
 	isSame, reasons := bpfdagentinternal.DoesProgExist(existingProgram, loadRequest)
 	if !isSame {
 		r.Logger.V(1).Info("TracepointProgram is in wrong state, unloading and reloading", "Reason", reasons)
+
 		if err := bpfdagentinternal.UnloadBpfdProgram(ctx, r.BpfdClient, id); err != nil {
 			r.Logger.Error(err, "Failed to unload TracepointProgram")
 			return bpfdiov1alpha1.BpfProgCondNotUnloaded, nil

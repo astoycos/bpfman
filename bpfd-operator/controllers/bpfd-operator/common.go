@@ -114,7 +114,7 @@ func reconcileBpfProgram(ctx context.Context, rec ProgramReconciler, prog client
 
 		condition := bpfProgram.Status.Conditions[recentIdx]
 
-		if condition.Type == string(bpfdiov1alpha1.BpfProgCondNotLoaded) || condition.Type == string(bpfdiov1alpha1.BpfProgCondNotUnloaded) {
+		if bpfdiov1alpha1.IsBpfProgramConditionFailure(condition.Type) {
 			failedBpfPrograms = append(failedBpfPrograms, bpfProgram.Name)
 		}
 	}
