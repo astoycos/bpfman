@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -76,7 +77,8 @@ type bpfdReconciler interface {
 		interface{},
 		*bpfdiov1alpha1.BpfProgram,
 		bool,
-		bool) (bpfdiov1alpha1.BpfProgramConditionType, error)
+		bool,
+		*MapOwnerParamStatus) (bpfdiov1alpha1.BpfProgramConditionType, error)
 	getFinalizer() string
 	getRecType() string
 	buildBpfPrograms(ctx context.Context) (*bpfdiov1alpha1.BpfProgramList, error)
@@ -285,8 +287,26 @@ func reconcileProgram(ctx context.Context,
 		return false, fmt.Errorf("failed to process bytecode selector: %v", err)
 	}
 
+	// Determine if the MapOwnerSelector was set, and if so, see if the MapOwner
+	// UUID can be found.
+	mapOwnerStatus, err := ProcessMapOwnerParam(ctx, &common.MapOwnerSelector, r)
+	if err != nil {
+		return false, fmt.Errorf("failed to determine map owner: %v", err)
+	}
+	r.Logger.V(1).Info("ProcessMapOwnerParam",
+		"isSet", mapOwnerStatus.isSet,
+		"isFound", mapOwnerStatus.isFound,
+		"isLoaded", mapOwnerStatus.isLoaded,
+		"mapOwnerUuid", mapOwnerStatus.mapOwnerUuid)
+
 	for _, bpfProg := range r.bpfPrograms {
-		progCond, err := rec.reconcileBpfdProgram(ctx, programMap, bytecode, &bpfProg, isNodeSelected, isBeingDeleted)
+		progCond, err := rec.reconcileBpfdProgram(ctx,
+			programMap,
+			bytecode,
+			&bpfProg,
+			isNodeSelected,
+			isBeingDeleted,
+			mapOwnerStatus)
 		if err != nil {
 			r.Logger.Error(err, "Failed to reconcile bpfd")
 		}
@@ -339,4 +359,75 @@ func reconcileProgram(ctx context.Context,
 	}
 
 	return false, nil
+}
+
+// MapOwnerParamStatus provides the output from a MapOwerSelector being parsed.
+type MapOwnerParamStatus struct {
+	isSet        bool
+	isFound      bool
+	isLoaded     bool
+	mapOwnerUuid types.UID
+}
+
+// This function parses the MapOwnerSelector field from the BpfProgramCommon struct
+// in the *Program CRDs. The field is a Label Selector. The labels should map to
+// an eBPF Program that this eBPF Program wants to share maps with. If found, this
+// function returns the UUID of the EBPF Program that owns the map to be shared.
+// Found or not, this function also returns some flags (isSet, isFound, isLoaded)
+// to help with the processing and set the proper condition on the BPF Object.
+func ProcessMapOwnerParam(ctx context.Context,
+	selector *metav1.LabelSelector,
+	r *ReconcilerCommon) (*MapOwnerParamStatus, error) {
+	mapOwnerStatus := &MapOwnerParamStatus{}
+
+	// Parse the MapOwnerSelector label selector.
+	mapOwnerSelectorMap, err := metav1.LabelSelectorAsMap(selector)
+	if err != nil {
+		mapOwnerStatus.isSet = true
+		return mapOwnerStatus, fmt.Errorf("failed to parse MapOwnerSelector: %v", err)
+	}
+
+	// If no data was entered, just return with default values, all flags set to false.
+	if len(mapOwnerSelectorMap) == 0 {
+		return mapOwnerStatus, nil
+	} else {
+		mapOwnerStatus.isSet = true
+
+		// Add the labels from the MapOwnerSelector to a map and add an additional
+		// label to filter on just this node. Call K8s to find all the eBPF programs
+		// that match this filter.
+		var labelMap = make(client.MatchingLabels)
+		labelMap[internal.K8sHostLabel] = r.NodeName
+		for key, value := range mapOwnerSelectorMap {
+			labelMap[key] = value
+		}
+		opts := []client.ListOption{labelMap}
+		bpfProgramList := &bpfdiov1alpha1.BpfProgramList{}
+		r.Logger.V(1).Info("MapOwner Labels:", "opts", opts)
+		err := r.List(ctx, bpfProgramList, opts...)
+		if err != nil {
+			return mapOwnerStatus, err
+		}
+
+		// If no eBPF Programs were found, or more than one, then return.
+		if len(bpfProgramList.Items) == 0 {
+			return mapOwnerStatus, nil
+		} else if len(bpfProgramList.Items) > 1 {
+			return mapOwnerStatus, fmt.Errorf("MapOwnerSelector resolved to multiple pods")
+		} else {
+			mapOwnerStatus.isFound = true
+			mapOwnerStatus.mapOwnerUuid = bpfProgramList.Items[0].GetUID()
+
+			// Get most recent condition from the one eBPF Program and determine
+			// if the eBPF Program is loaded or not.
+			conLen := len(bpfProgramList.Items[0].Status.Conditions)
+			if conLen > 0 &&
+				bpfProgramList.Items[0].Status.Conditions[conLen-1].Type ==
+					string(bpfdiov1alpha1.BpfProgCondLoaded) {
+				mapOwnerStatus.isLoaded = true
+			}
+
+			return mapOwnerStatus, nil
+		}
+	}
 }
