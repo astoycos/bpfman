@@ -381,7 +381,7 @@ impl UprobeProgram {
 #[derive(Serialize, Deserialize, Clone)]
 pub(crate) struct ProgramData {
     pub(crate) location: Location,
-    pub(crate) section_name: String,
+    pub(crate) section_name: std::cell::RefCell<String>,
     pub(crate) global_data: HashMap<String, Vec<u8>>,
     pub(crate) owner: String,
     pub(crate) map_owner_uuid: Option<Uuid>,
@@ -398,7 +398,7 @@ impl ProgramData {
     ) -> Self {
         Self {
             location,
-            section_name,
+            section_name: std::cell::RefCell::new(section_name),
             owner,
             global_data,
             map_owner_uuid,
@@ -406,19 +406,20 @@ impl ProgramData {
         }
     }
 
-    pub(crate) async fn program_bytes(&mut self) -> Result<Vec<u8>, BpfdError> {
+    pub(crate) async fn program_bytes(&self) -> Result<Vec<u8>, BpfdError> {
         match self.location.get_program_bytes().await {
             Err(e) => Err(e),
             Ok((v, s)) => {
                 // If section name isn't provided and we're loading from a container
                 // image use the section name provided in the image metadata, otherwise
                 // always use the provided section name.
-                if self.section_name.is_empty() {
-                    self.section_name = s
-                } else if s != self.section_name {
+
+                if self.section_name.borrow().is_empty() {
+                    *self.section_name.borrow_mut() = s;
+                } else if s != *self.section_name.borrow() {
                     return Err(BpfdError::BytecodeMetaDataMismatch {
                         image_sec_name: s,
-                        provided_sec_name: self.section_name.clone(),
+                        provided_sec_name: self.section_name.borrow().clone(),
                     });
                 }
 

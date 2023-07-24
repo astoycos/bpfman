@@ -176,10 +176,7 @@ impl XdpDispatcher {
                 );
                 new_link.pin(path).map_err(BpfdError::UnableToPinLink)?;
             } else {
-                let program_bytes = v
-                    .data
-                    .program_bytes()
-                    .await?;
+                let program_bytes = v.data.program_bytes().await?;
                 let mut bpf = BpfLoader::new();
 
                 for (name, value) in &v.data.global_data {
@@ -189,7 +186,7 @@ impl XdpDispatcher {
                 let (_, map_pin_path) = calc_map_pin_path(**k, v.data.map_owner_uuid);
                 let mut bpf = bpf
                     .map_pin_path(map_pin_path.clone())
-                    .extension(&v.data.section_name)
+                    .extension(&v.data.section_name.borrow())
                     .load(&program_bytes)
                     .map_err(BpfdError::BpfLoadError)?;
 
