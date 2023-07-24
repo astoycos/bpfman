@@ -178,8 +178,7 @@ impl XdpDispatcher {
             } else {
                 let program_bytes = v
                     .data
-                    .location
-                    .get_program_bytes(&v.data.section_name)
+                    .program_bytes()
                     .await?;
                 let mut bpf = BpfLoader::new();
 

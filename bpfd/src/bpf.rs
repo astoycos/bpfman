@@ -187,8 +187,7 @@ impl BpfManager {
 
         let program_bytes = program
             .data()
-            .location
-            .get_program_bytes(&program.data().section_name)
+            .program_bytes()
             .await?;
 
         // This load is just to verify the Section Name is valid.
@@ -285,8 +284,7 @@ impl BpfManager {
         debug!("BpfManager::add_single_attach_program()");
         let program_bytes = p
             .data()
-            .location
-            .get_program_bytes(&p.data().section_name)
+            .program_bytes()
             .await?;
 
         let mut loader = BpfLoader::new();
@@ -905,8 +903,7 @@ impl BpfManager {
                 args.global_data,
                 args.map_owner_uuid,
                 args.username,
-            )
-            .await;
+            );
 
             let prog = Program::Xdp(XdpProgram {
                 data: prog_data.clone(),
@@ -915,8 +912,7 @@ impl BpfManager {
                     current_position: None,
                     metadata: command::Metadata {
                         priority: args.priority,
-                        // This could have been overridden by image tags
-                        name: prog_data.section_name,
+                        name: args.section_name,
                         attached: false,
                     },
                     proceed_on: args.proceed_on,
@@ -937,12 +933,11 @@ impl BpfManager {
         let res = if let Ok(if_index) = get_ifindex(&args.iface) {
             let prog_data = ProgramData::new(
                 args.location,
-                args.section_name,
+                args.section_name.clone(),
                 args.global_data,
                 args.map_owner_uuid,
                 args.username,
-            )
-            .await;
+            );
 
             let prog = Program::Tc(TcProgram {
                 data: prog_data.clone(),
@@ -952,8 +947,7 @@ impl BpfManager {
                     current_position: None,
                     metadata: command::Metadata {
                         priority: args.priority,
-                        // This could have been overridden by image tags
-                        name: prog_data.section_name,
+                        name: args.section_name,
                         attached: false,
                     },
                     proceed_on: args.proceed_on,
@@ -978,8 +972,7 @@ impl BpfManager {
                 args.global_data,
                 args.map_owner_uuid,
                 args.username,
-            )
-            .await;
+            );
 
             let prog = Program::Tracepoint(TracepointProgram {
                 data: prog_data,
@@ -1003,8 +996,8 @@ impl BpfManager {
                 args.global_data,
                 args.map_owner_uuid,
                 args.username,
-            )
-            .await;
+            );
+
             let prog = Program::Kprobe(KprobeProgram {
                 data: prog_data,
                 info: KprobeProgramInfo {
@@ -1036,8 +1029,7 @@ impl BpfManager {
                 args.global_data,
                 args.map_owner_uuid,
                 args.username,
-            )
-            .await;
+            );
 
             let prog = Program::Uprobe(UprobeProgram {
                 data: prog_data,

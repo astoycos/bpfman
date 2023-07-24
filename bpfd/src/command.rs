@@ -138,10 +138,8 @@ pub(crate) enum Location {
 }
 
 impl Location {
-    pub(crate) async fn get_program_bytes(
-        &self,
-        section_name: &String,
-    ) -> Result<Vec<u8>, BpfdError> {
+    async fn get_program_bytes(&self) -> Result<(Vec<u8>, String), BpfdError> {
+        let mut section_name = String::new();
         match self {
             Location::File(l) => crate::utils::read(l).await,
             Location::Image(l) => {
@@ -151,22 +149,14 @@ impl Location {
                     .await
                     .map_err(|e| BpfdError::BpfBytecodeError(e.into()))?;
 
-                // If section name isn't provided and we're loading from a container
-                // image use the section name provided in the image metadata, otherwise
-                // always use the provided section name.
-                if !section_name.is_empty()
-                    && program_overrides.image_meta.section_name != *section_name
-                {
-                    return Err(BpfdError::BytecodeMetaDataMismatch {
-                        image_sec_name: program_overrides.image_meta.section_name,
-                        provided_sec_name: section_name.clone(),
-                    });
-                }
+                section_name = program_overrides.image_meta.section_name;
+
                 get_bytecode_from_image_store(program_overrides.path)
                     .await
                     .map_err(|e| BpfdError::Error(format!("Bytecode loading error: {e}")))
             }
         }
+        .map(|v| (v, section_name))
     }
 }
 
@@ -399,7 +389,7 @@ pub(crate) struct ProgramData {
 }
 
 impl ProgramData {
-    pub(crate) async fn new(
+    pub(crate) fn new(
         location: Location,
         section_name: String,
         global_data: HashMap<String, Vec<u8>>,
@@ -413,6 +403,27 @@ impl ProgramData {
             global_data,
             map_owner_uuid,
             kernel_info: None,
+        }
+    }
+
+    pub(crate) async fn program_bytes(&mut self) -> Result<Vec<u8>, BpfdError> {
+        match self.location.get_program_bytes().await {
+            Err(e) => Err(e),
+            Ok((v, s)) => {
+                // If section name isn't provided and we're loading from a container
+                // image use the section name provided in the image metadata, otherwise
+                // always use the provided section name.
+                if self.section_name.is_empty() {
+                    self.section_name = s
+                } else if s != self.section_name {
+                    return Err(BpfdError::BytecodeMetaDataMismatch {
+                        image_sec_name: s,
+                        provided_sec_name: self.section_name.clone(),
+                    });
+                }
+
+                Ok(v)
+            }
         }
     }
 }
