@@ -78,5 +78,16 @@ func DoesProgExist(actual *gobpfd.ListResponse_ListResult, expected *gobpfd.Load
 		}
 	}
 
+	actualKprobe := actual.GetKprobeAttachInfo()
+	expectedKprobe := expected.GetKprobeAttachInfo()
+	if actualKprobe != nil && expectedKprobe != nil {
+		if actualKprobe.FnName != expectedKprobe.FnName ||
+			actualKprobe.Offset != expectedKprobe.Offset ||
+			actualKprobe.Retprobe != expectedKprobe.Retprobe ||
+			actualKprobe.Namespace != expectedKprobe.Namespace {
+			return false
+		}
+	}
+
 	return true
 }

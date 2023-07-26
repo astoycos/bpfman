@@ -1,0 +1,15 @@
+apiVersion: bpfd.dev/v1alpha1
+kind: KprobeProgram
+metadata:
+  labels:
+    app.kubernetes.io/name: kprobeprogram
+  name: go-kprobe-example
+spec:
+  sectionname: my_kprobe
+  # Select all nodes
+  nodeselector: {}
+  func_names:
+  - try_to_wake_up
+  bytecode:
+    image:
+      url: quay.io/bpfd-bytecode/kprobe:latest
