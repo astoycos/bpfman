@@ -55,6 +55,16 @@ TODO: a walkthrough for the reader to try out bpfd. Notes:
 
 ## Joining the Bpfd community
 
-TODO: (shane)
-  a. discussions, slack, weekly sync
-  a. discuss projects currently using bpfd
+If you're interested in Bpfd and want to get involved, you can connect with the
+community multiple ways. If you have some simple questions, or need some help
+feel free to [start a discussion][bpfd-disc]. If you find an issue, or you want
+to request a new feature, please [create an issue][bpfd-iss]. If you want
+something a little more synchronous, the project maintains a `#bpfd` channel on
+[Kubernetes Slack][k8s-slack] and we have a [weekly community meeting][sync]
+where everyone can join and bring topics to discuss about the project. We hope
+to see you there!
+
+[bpfd-disc]:https://github.com/bpfd-dev/bpfd/discussions/new/choose
+[bpfd-iss]:https://github.com/bpfd-dev/bpfd/issues/new
+[k8s-slack]:https://kubernetes.slack.com
+[sync]:https://bpfd.dev/governance/meetings/
