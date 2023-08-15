@@ -13,7 +13,7 @@ but in recent years [eBPF] has emerged as a technology in the
 
 eBPF is a simple and efficient way to dynamically load programs into the kernel
 at runtime, with safety and performance provided by the kernel itself using a
-Just-In-Time (JIT) compiler and verification process. There is a wide variety
+Just-In-Time (JIT) compiler and verification process. There are a wide variety
 of types of programs one can create with eBPF, which include everything from
 networking applications to security systems.
 
@@ -22,8 +22,8 @@ and rainbows: the process of developing, testing, deploying and maintaining
 eBPF programs is not a road well traveled yet, and the story gets even more
 complicated when you want to deploy your programs into more complicated setups,
 such as a [Kubernetes] cluster. It was these kinds of problems which
-instigated the creation of [Bpfd]: a system daemon for loading and managing eBPF
-programs in both tradition systems and Kubernetes clusters. In this blog post
+motivated the creation of [Bpfd]: a system daemon for loading and managing eBPF
+programs in both traditional systems and Kubernetes clusters. In this blog post
 we'll discuss the problems Bpfd can help solve, and how to deploy and use it.
 
 [userspace]:https://en.wikipedia.org/wiki/User_space_and_kernel_space
@@ -40,7 +40,7 @@ managing eBPF programs in both traditional and Kubernetes environments.
 
 ## Introduction to Bpfd
 
-TODO: overview of bpfd, with a high-level rundown of how to deploy and use it
+TODO (Andre): overview of bpfd, with a high-level rundown of how to deploy and use it
 
 ## Introduction to the Kubernetes bpfd-operator
 
