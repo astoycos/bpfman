@@ -138,21 +138,35 @@ pub(crate) enum Location {
 }
 
 impl Location {
-    async fn get_program_bytes(&self) -> Result<(Vec<u8>, String), BpfdError> {
+    async fn get_program_bytes(
+        &self,
+        provided_sec_name: String,
+    ) -> Result<(Vec<u8>, String), BpfdError> {
         match self {
-            Location::File(l) => Ok((crate::utils::read(l).await?, "".to_owned())),
+            Location::File(l) => Ok((crate::utils::read(l).await?, provided_sec_name)),
             Location::Image(l) => {
-                let (path, section_name) = l
+                let (path, image_sec_name) = l
                     .clone()
                     .get_image(None)
                     .await
                     .map_err(|e| BpfdError::BpfBytecodeError(e.into()))?;
 
+                if image_sec_name != provided_sec_name {
+                    return Err(BpfdError::BytecodeMetaDataMismatch {
+                        image_sec_name,
+                        provided_sec_name,
+                    });
+                }
+
                 Ok((
                     get_bytecode_from_image_store(path)
                         .await
                         .map_err(|e| BpfdError::Error(format!("Bytecode loading error: {e}")))?,
-                    section_name,
+                    if provided_sec_name.is_empty() && !image_sec_name.is_empty() {
+                        image_sec_name
+                    } else {
+                        provided_sec_name
+                    },
                 ))
             }
         }
@@ -405,23 +419,14 @@ impl ProgramData {
     }
 
     pub(crate) async fn program_bytes(&mut self) -> Result<Vec<u8>, BpfdError> {
-        match self.location.get_program_bytes().await {
+        match self
+            .location
+            .get_program_bytes(self.section_name.clone())
+            .await
+        {
             Err(e) => Err(e),
-            Ok((v, s)) => {
-                // If section name isn't provided and we're loading from a container
-                // image use the section name provided in the image metadata, otherwise
-                // always use the provided section name.
-                let provided_sec_name = self.section_name.clone();
-
-                if provided_sec_name.is_empty() {
-                    self.section_name = s;
-                } else if s != provided_sec_name {
-                    return Err(BpfdError::BytecodeMetaDataMismatch {
-                        image_sec_name: s,
-                        provided_sec_name,
-                    });
-                }
-
+            Ok((v, section_name)) => {
+                self.section_name = section_name;
                 Ok(v)
             }
         }
