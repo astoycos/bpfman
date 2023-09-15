@@ -37,13 +37,14 @@ pub(crate) enum Command {
     List {
         responder: Responder<Result<Vec<Program>, BpfdError>>,
     },
+    Get(GetArgs),
     PullBytecode(PullBytecodeArgs),
 }
 
 #[derive(Debug)]
 pub(crate) struct LoadArgs {
     pub(crate) program: Program,
-    pub(crate) responder: Responder<Result<u32, BpfdError>>,
+    pub(crate) responder: Responder<Result<Program, BpfdError>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -60,6 +61,12 @@ pub(crate) enum Program {
 pub(crate) struct UnloadArgs {
     pub(crate) id: u32,
     pub(crate) responder: Responder<Result<(), BpfdError>>,
+}
+
+#[derive(Debug)]
+pub(crate) struct GetArgs {
+    pub(crate) id: u32,
+    pub(crate) responder: Responder<Result<Program, BpfdError>>,
 }
 
 #[derive(Debug)]
@@ -620,17 +627,6 @@ impl Program {
         match self {
             Program::Tc(p) => Some(p.direction),
             _ => None,
-        }
-    }
-
-    pub(crate) fn name(&self) -> &str {
-        match self {
-            Program::Xdp(p) => &p.data.name,
-            Program::Tracepoint(p) => &p.data.name,
-            Program::Tc(p) => &p.data.name,
-            Program::Kprobe(p) => &p.data.name,
-            Program::Uprobe(p) => &p.data.name,
-            Program::Unsupported(k) => &k.name,
         }
     }
 }

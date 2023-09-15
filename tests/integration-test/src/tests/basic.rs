@@ -51,7 +51,7 @@ fn test_load_unload_xdp() {
     for lt in LOAD_TYPES {
         for _ in 0..5 {
             let priority = rng.gen_range(1..255);
-            let uuid = add_xdp(
+            let (prog_id, _) = add_xdp(
                 DEFAULT_BPFD_IFACE,
                 priority,
                 Some(globals.clone()),
@@ -61,7 +61,7 @@ fn test_load_unload_xdp() {
                 XDP_PASS_FILE_LOC,
                 None,
             );
-            uuids.push(uuid.unwrap());
+            uuids.push(prog_id.unwrap());
         }
     }
     assert_eq!(uuids.len(), 10);
@@ -110,7 +110,7 @@ fn test_load_unload_tc() {
     for lt in LOAD_TYPES {
         for _ in 0..5 {
             let priority = rng.gen_range(1..255);
-            let uuid = add_tc(
+            let (prog_id, _) = add_tc(
                 "ingress",
                 DEFAULT_BPFD_IFACE,
                 priority,
@@ -120,7 +120,7 @@ fn test_load_unload_tc() {
                 TC_PASS_IMAGE_LOC,
                 TC_PASS_FILE_LOC,
             );
-            uuids.push(uuid.unwrap());
+            uuids.push(prog_id.unwrap());
         }
     }
     assert_eq!(uuids.len(), 10);
@@ -151,14 +151,13 @@ fn test_load_unload_tracepoint() {
     let mut uuids = vec![];
 
     for lt in LOAD_TYPES {
-        let uuid = add_tracepoint(
+        let (prog_id, _) = add_tracepoint(
             Some(globals.clone()),
             lt,
             TRACEPOINT_IMAGE_LOC,
             TRACEPOINT_FILE_LOC,
-        )
-        .unwrap();
-        uuids.push(uuid);
+        );
+        uuids.push(prog_id.unwrap());
     }
 
     verify_and_delete_programs(uuids);
@@ -299,7 +298,7 @@ fn test_list_with_metadata() {
     for lt in LOAD_TYPES {
         for _ in 0..2 {
             let priority = rng.gen_range(1..255);
-            let uuid = add_xdp(
+            let (prog_id, _) = add_xdp(
                 DEFAULT_BPFD_IFACE,
                 priority,
                 Some(globals.clone()),
@@ -309,13 +308,13 @@ fn test_list_with_metadata() {
                 XDP_PASS_FILE_LOC,
                 None,
             );
-            uuids.push(uuid.unwrap());
+            uuids.push(prog_id.unwrap());
         }
     }
 
     let key = "uuid=ITS_BPF_NOT_EBPF";
     let priority = rng.gen_range(1..255);
-    let uuid = add_xdp(
+    let (prog_id, _) = add_xdp(
         DEFAULT_BPFD_IFACE,
         priority,
         Some(globals.clone()),
@@ -324,16 +323,16 @@ fn test_list_with_metadata() {
         XDP_PASS_IMAGE_LOC,
         XDP_PASS_FILE_LOC,
         Some(vec![key]),
-    )
-    .unwrap();
+    );
+    let id = prog_id.unwrap();
 
     debug!("Listing programs with metadata {key}");
     // ensure listing with metadata works
     let list_output = bpfd_list(Some(vec![key])).unwrap();
 
-    assert!(list_output.contains(&uuid));
+    assert!(list_output.contains(&id));
 
-    uuids.push(uuid);
+    uuids.push(id);
 
     assert_eq!(uuids.len(), 5);
 

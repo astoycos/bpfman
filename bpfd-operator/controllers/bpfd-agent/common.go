@@ -458,7 +458,11 @@ func ProcessMapOwnerParam(ctx context.Context,
 				return nil, fmt.Errorf("failed to get bpfd program for BpfProgram with UUID %s: %v", bpfProgramList.Items[0].GetUID(), err)
 			}
 
-			mapOwnerStatus.mapOwnerId = &prog.Id
+			kernelInfo := prog.GetKernelInfo()
+			if kernelInfo == nil {
+				return nil, fmt.Errorf("failed to process bpfd program for BpfProgram with UUID %s: %v", bpfProgramList.Items[0].GetUID(), err)
+			}
+			mapOwnerStatus.mapOwnerId = &kernelInfo.Id
 
 			// Get most recent condition from the one eBPF Program and determine
 			// if the BpfProgram is loaded or not.
