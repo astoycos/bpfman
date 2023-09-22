@@ -559,27 +559,78 @@ impl BpfManager {
                     .data
                     .set_kernel_info(Some(uprobe.info()?.try_into()?));
 
-                let link_id = uprobe.attach(
-                    program.fn_name.as_deref(),
-                    program.offset,
-                    program.target.clone(),
-                    program.pid,
-                )?;
-
-                let owned_link: UProbeLink = uprobe.take_link(link_id)?;
-                let fd_link: FdLink = owned_link
-                    .try_into()
-                    .expect("unable to get owned uprobe attach link");
-
                 let id = program.data.id().expect("id should be set after load");
 
-                fd_link
-                    .pin(format!("{RTDIR_FS}/prog_{}_link", id))
-                    .map_err(BpfmanError::UnableToPinLink)?;
+                let program_pin_path = format!("{RTDIR_FS}/prog_{id}");
 
                 uprobe
-                    .pin(format!("{RTDIR_FS}/prog_{id}"))
+                    .pin(program_pin_path.clone())
                     .map_err(BpfmanError::UnableToPinProgram)?;
+
+                if program.namespace_pid.is_none() {
+                    // Attach uprobe in same namespace as the bpfman process
+                    let link_id = uprobe.attach(
+                        program.fn_name.as_deref(),
+                        program.offset,
+                        program.target.clone(),
+                        None,
+                    )?;
+
+                    let owned_link: UProbeLink = uprobe.take_link(link_id)?;
+                    let fd_link: FdLink = owned_link
+                        .try_into()
+                        .expect("unable to get owned uprobe attach link");
+
+                    fd_link
+                        .pin(format!("{RTDIR_FS}/prog_{}_link", id))
+                        .map_err(BpfmanError::UnableToPinLink)?;
+                } else {
+                    // Attach uprobe in different namespace from the bpfman process
+                    let offset = program.offset.to_string();
+                    let namespace_pid = program.namespace_pid.unwrap().to_string();
+                    let mut prog_args = vec![
+                        "uprobe",
+                        "--program-pin-path",
+                        program_pin_path.as_str(),
+                        "--offset",
+                        offset.as_str(),
+                        "--target",
+                        program.target.as_str(),
+                        "--namespace-pid",
+                        namespace_pid.as_str(),
+                    ];
+
+                    let fn_name = program.fn_name.clone().unwrap_or_default();
+                    if !fn_name.is_empty() {
+                        prog_args.extend(["--fn-name", fn_name.as_str()])
+                    }
+
+                    if program.retprobe {
+                        prog_args.push("--retprobe");
+                    }
+
+                    let mut pid = String::new();
+                    if program.pid.is_some() {
+                        pid = program.pid.unwrap().to_string()
+                    }
+                    if !pid.is_empty() {
+                        prog_args.extend(["--pid", pid.as_str()])
+                    }
+
+                    let status = std::process::Command::new("./target/debug/bpfman-ns")
+                        .args(prog_args)
+                        .status()
+                        .expect("bpfman-ns call failed to return status");
+
+                    debug!("bpfman-ns status: {:?}", status);
+
+                    if !status.success() {
+                        return Err(BpfmanError::NamespaceAttachError {
+                            program_type: "uprobe".to_string(),
+                            namespace_pid: program.namespace_pid.unwrap(),
+                        });
+                    }
+                };
 
                 Ok(id)
             }

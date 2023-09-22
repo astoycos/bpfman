@@ -95,7 +95,7 @@ pub(crate) enum LoadCommands {
 
         /// Optional: Namespace to attach the kprobe in. (NOT CURRENTLY SUPPORTED)
         #[clap(short, long)]
-        namespace: Option<String>,
+        namespace_pid: Option<i32>,
     },
     /// Install an eBPF uprobe or uretprobe
     Uprobe {
@@ -126,9 +126,9 @@ pub(crate) enum LoadCommands {
         #[clap(short, long, verbatim_doc_comment)]
         pid: Option<i32>,
 
-        /// Optional: Namespace to attach the uprobe in. (NOT CURRENTLY SUPPORTED)
+        /// Optional: Namespace to attach the uprobe in.
         #[clap(short, long)]
-        namespace: Option<String>,
+        namespace_pid: Option<i32>,
     },
 }
 
@@ -196,9 +196,9 @@ impl LoadCommands {
                 fn_name,
                 offset,
                 retprobe,
-                namespace,
+                namespace_pid,
             } => {
-                if namespace.is_some() {
+                if namespace_pid.is_some() {
                     bail!("kprobe namespace option not supported yet");
                 }
                 let offset = offset.unwrap_or(0);
@@ -207,7 +207,7 @@ impl LoadCommands {
                         fn_name: fn_name.to_string(),
                         offset,
                         retprobe: *retprobe,
-                        namespace: namespace.clone(),
+                        namespace_pid: *namespace_pid,
                     })),
                 }))
             }
@@ -217,11 +217,8 @@ impl LoadCommands {
                 target,
                 retprobe,
                 pid,
-                namespace,
+                namespace_pid,
             } => {
-                if namespace.is_some() {
-                    bail!("uprobe namespace option not supported yet");
-                }
                 let offset = offset.unwrap_or(0);
                 Ok(Some(AttachInfo {
                     info: Some(Info::UprobeAttachInfo(UprobeAttachInfo {
@@ -230,7 +227,7 @@ impl LoadCommands {
                         target: target.clone(),
                         retprobe: *retprobe,
                         pid: *pid,
-                        namespace: namespace.clone(),
+                        namespace_pid: *namespace_pid,
                     })),
                 }))
             }

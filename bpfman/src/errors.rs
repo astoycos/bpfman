@@ -43,4 +43,9 @@ pub enum BpfmanError {
     RpcError(#[from] oneshot::error::RecvError),
     #[error("Failed to pin map {0}")]
     UnableToPinMap(#[source] aya::pin::PinError),
+    #[error("Unable to attach {program_type} in namespace with pid {namespace_pid}")]
+    NamespaceAttachError {
+        program_type: String,
+        namespace_pid: i32,
+    },
 }
