@@ -7,7 +7,10 @@ data:
   ## Can be configured at runtime
   bpfd.agent.image: quay.io/bpfd/bpfd-agent:latest
   bpfd.image: quay.io/bpfd/bpfd:latest
-  bpfd.log.level: "info"
+  ## Can be set to "info", "debug", or "trace"
+  bpfd.agent.log.level: "info"
+  ## See https://docs.rs/env_logger/latest/env_logger/ for configuration options
+  bpfd.log.level: "bpfd=info"
   ## Must be configured at startup
   bpfd.toml: |
     [[grpc.endpoints]]
