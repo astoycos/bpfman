@@ -299,31 +299,29 @@ impl BpfManager {
         };
 
         // map_pin_path MUST be set following load.
-        let map_pin_path = program.data()?.map_pin_path();
+        //let map_pin_path = program.data()?.map_pin_path();
 
         match result {
             Ok(id) => {
                 // Now that program is successfully loaded, update the id, maps hash table,
                 // and allow access to all maps by bpfd group members.
+                // TODO this should probably be program.save_map not bpfmanager.save_map
                 self.save_map(
+                    &mut program,
                     id,
                     map_owner_id,
-                    map_pin_path.expect("map_pin_path must be set after successfult load"),
+                    //map_pin_path.clone().expect("map_pin_path must be set after successfult load"),
                 )
                 .await?;
 
-                // add_multi_attach_program() and add_single_attach_program() take ownership
-                // of program, so this function now has an outdated copy (for example, map_used_by
-                // is not set). Get the latest copy to return.
-                match self.programs.get(&id) {
-                    Some(prog) => Ok(prog.to_owned()),
-                    None => Err(BpfdError::Error(format!(
-                        "Unable to retrieve program {0} after load",
-                        id
-                    ))),
-                }
+                // Only add program to bpfManager if we've done everything
+                self.programs.insert(id, program.to_owned());
+
+                Ok(program)
             }
             Err(e) => {
+                let map_pin_path = program.data()?.map_pin_path();
+
                 if let Some(pin_path) = map_pin_path {
                     let _ = self.cleanup_map_pin_path(pin_path, map_owner_id).await;
                 }
@@ -414,7 +412,6 @@ impl BpfManager {
             .kernel_info()
             .expect("kernel info should be set after load")
             .id;
-        self.programs.insert(id, program.to_owned());
 
         if let Some(p) = self.programs.get_mut(&id) {
             p.set_attached();
@@ -602,11 +599,11 @@ impl BpfManager {
                     }
                 }
 
-                self.programs.insert(id, p.to_owned());
-                self.programs
-                    .get(&id)
-                    .unwrap()
-                    .save(id)
+                // self.programs.insert(id, p.to_owned());
+                // self.programs
+                //     .get(&id)
+                //     .unwrap()
+                    p.save(id)
                     // we might want to log or ignore this error instead of returning here...
                     // because otherwise it will hide the original error (from res above)
                     .map_err(|_| BpfdError::Error("unable to persist program data".to_string()))?;
@@ -914,10 +911,16 @@ impl BpfManager {
     // the Used-By array.
     async fn save_map(
         &mut self,
+        program: &mut Program,
         id: u32,
         map_owner_id: Option<u32>,
-        map_pin_path: &Path,
+        //map_pin_path: &Path,
     ) -> Result<(), BpfdError> {
+        let data = program.data_mut()?;
+        // let id = data.id().expect("id should be set");
+        // let map_owner_id = data.map_owner_id();
+        // let map_pin_path = data.map_pin_path().expect("map_pin_path should be set");
+
         match map_owner_id {
             Some(m) => {
                 if let Some(map) = self.maps.get_mut(&m) {
@@ -940,32 +943,33 @@ impl BpfManager {
                 }
             }
             None => {
-                if let Some(program) = self.programs.get_mut(&id) {
-                    let map = BpfMap { used_by: vec![id] };
+                // if let Some(program) = self.programs.get_mut(&id) {
+                let map = BpfMap { used_by: vec![id] };
 
-                    self.maps.insert(id, map);
+                self.maps.insert(id, map);
 
-                    // Update this program with the updated map_used_by
-                    if let Ok(data) = program.data_mut() {
-                        data.set_maps_used_by(Some(vec![id]));
-                    } else {
-                        return Err(BpfdError::Error(
-                            "unable to retrieve data for {id}".to_string(),
-                        ));
-                    }
-
-                    if let Some(path) = map_pin_path.to_str() {
-                        set_dir_permissions(path, MAPS_MODE).await;
-                    } else {
-                        return Err(BpfdError::Error(
-                            "invalid map_pin_path {map_pin_path} for {id}".to_string(),
-                        ));
-                    }
+                // Update this program with the updated map_used_by
+                // if let Ok(data) = program.data_mut() {
+                data.set_maps_used_by(Some(vec![id]));
+                // } else {
+                //     return Err(BpfdError::Error(
+                //         format!("unable to retrieve data for {id}"),
+                //     ));
+                // }
+                
+                let map_pin_path = data.map_pin_path().expect("map_pin_path should be set");
+                if let Some(path) = map_pin_path.to_str() {
+                    set_dir_permissions(path, MAPS_MODE).await;
                 } else {
                     return Err(BpfdError::Error(
-                        "unable to retrieve program for {id}".to_string(),
+                        format!("invalid map_pin_path {} for {id}", map_pin_path.display()),
                     ));
                 }
+                // } else {
+                //     return Err(BpfdError::Error(
+                //         format!("unable to retrieve program for {id}"),
+                //     ));
+                // }
             }
         }
 
