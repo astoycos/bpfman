@@ -1,0 +1,24 @@
+FROM golang:1.19 as go-tracepoint-evil-build
+
+RUN apt-get update && apt-get install -y \
+ clang \
+ gcc-multilib \
+ libbpf-dev
+
+RUN go install github.com/cilium/ebpf/cmd/bpf2go@master
+
+WORKDIR /usr/src/bpfd/
+COPY ./ /usr/src/bpfd/
+
+WORKDIR /usr/src/bpfd/examples/go-tracepoint-evil
+
+# Compile go-tracepoint-evil
+RUN go build
+
+FROM registry.fedoraproject.org/fedora-minimal:latest
+
+COPY --from=go-tracepoint-evil-build  /usr/src/bpfd/examples/go-tracepoint-evil/go-tracepoint-evil .
+
+RUN microdnf install -y bpftrace bash && microdnf clean all
+
+ENTRYPOINT ["./go-tracepoint-evil"]

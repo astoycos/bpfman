@@ -1,0 +1,15 @@
+tracepoint:syscalls:sys_enter_read
+{   
+    if (pid == 357580) { 
+        @sys_read[pid] = args->buf;
+    }
+}
+
+tracepoint:syscalls:sys_exit_read 
+/@sys_read[pid]/   
+{
+  $cmd = str(@sys_read[pid], args->ret);
+  printf("<-sys_exit_read: $cmd");
+
+  printf("<-sys_exit_read(tdi:%d).\n", pid);
+}

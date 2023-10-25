@@ -104,6 +104,7 @@ generate: ## Run `go generate` to build the bytecode for each of the examples.
 build-us-images: ## Build all example userspace images
 	docker build -t ${IMAGE_TC_US} -f ./go-tc-counter/container-deployment/Containerfile.go-tc-counter ../
 	docker build -t ${IMAGE_TP_US} -f ./go-tracepoint-counter/container-deployment/Containerfile.go-tracepoint-counter ../
+	docker build -t quay.io/bpfd-userspace/go-tracepoint-evil:latest -f ./go-tracepoint-evil/container-deployment/Containerfile.go-tracepoint-evil ../
 	docker build -t ${IMAGE_XDP_US} -f ./go-xdp-counter/container-deployment/Containerfile.go-xdp-counter ../
 
 .PHONY: build-bc-images
@@ -125,7 +126,7 @@ push-bc-images: ## Push all example userspace images
 
 .PHONY: load-us-images-kind
 load-us-images-kind: build-us-images ## Build and load all example userspace images into kind
-	kind load docker-image ${IMAGE_TC_US} ${IMAGE_TP_US} ${IMAGE_XDP_US} --name ${KIND_CLUSTER_NAME}
+	kind load docker-image ${IMAGE_TC_US} ${IMAGE_TP_US} ${IMAGE_XDP_US} quay.io/bpfd-userspace/go-tracepoint-evil:latest --name demo
 
 ##@ Deployment Variables (not commands)
 TAG: ## Used to set all images to a fixed tag. Example: make deploy TAG=v0.2.0
