@@ -80,6 +80,11 @@ struct ListArgs {
     /// Optional: List all programs.
     #[clap(short, long, verbatim_doc_comment)]
     all: bool,
+
+    /// Optional: List all bpfd programs attached to a given network interface.
+    /// Example: --interface eth0
+    #[clap(short, long, verbatim_doc_comment)]
+    interface: Option<String>,
 }
 
 #[derive(Args)]
@@ -571,34 +576,112 @@ impl ProgTable {
 
         Ok(ProgTable(table))
     }
-
-    fn new_list() -> Self {
+    
+    fn new_list_xdp(&mut self) {
         let mut table = Table::new();
 
         table.load_preset(comfy_table::presets::NOTHING);
-        table.set_header(vec!["Program ID", "Name", "Type", "Load Time"]);
+        vec![Cell::new("XDP Programs")
+        .add_attribute(comfy_table::Attribute::Bold)
+        .add_attribute(comfy_table::Attribute::Underlined)
+        .fg(Color::Green)];
+
+        table.add_row(vec!["Program ID", "Priority", "Name", "Interface", "Proceed On"]);
+    }
+
+    fn add_row_list_xdp(&mut self, id: String, priority: u32,  name: String, interface: String, proceed_on: Vec<String>) {
+        let mut pro_on_str = String::new();
+
+        proceed_on.into_iter().for_each(|x| pro_on_str.push_str(format!("{x},").as_str()));
+        self.0.add_row(vec![id, name, interface, pro_on_str]);
+    }
+
+    fn new_list_tc(&mut self) {
+        let mut table = Table::new();
+
+        table.set_header(vec![Cell::new("TC Programs")
+        .add_attribute(comfy_table::Attribute::Bold)
+        .add_attribute(comfy_table::Attribute::Underlined)
+        .fg(Color::Green)]);
+
+        table.load_preset(comfy_table::presets::NOTHING);
+        table.add_row(vec!["Program ID", "Priority", "Name", "Interface", "Direction", "Proceed On"]);
+    }
+
+    fn add_row_list_tc(&mut self, id: String, priority: u32, name: String, interface: String, direction: String, proceed_on: Vec<String>) {
+        let mut pro_on_str = String::new();
+
+        proceed_on.into_iter().for_each(|x| pro_on_str.push_str(format!("{x},").as_str()));
+        self.0.add_row(vec![id, name, interface, direction, pro_on_str]);
+    }
+
+    fn new_list_tracepoint(&mut self) {
+        let mut table = Table::new();
+
+        table.set_header(vec![Cell::new("Tracepoint Programs")
+        .add_attribute(comfy_table::Attribute::Bold)
+        .add_attribute(comfy_table::Attribute::Underlined)
+        .fg(Color::Green)]);
+
+        table.load_preset(comfy_table::presets::NOTHING);
+        table.set_header(vec!["Program ID", "Name", "Tracepoint"]);
         ProgTable(table)
     }
 
-    fn add_row_list(&mut self, id: String, name: String, type_: String, load_time: String) {
-        self.0.add_row(vec![id, name, type_, load_time]);
+    fn add_row_list_tracepoint(&mut self, id: String, name: String, tracepoint: String) {
+        self.0.add_row(vec![id, name, tracepoint]);
     }
 
-    fn add_response_prog(&mut self, r: ListResult) -> anyhow::Result<()> {
-        if r.kernel_info.is_none() {
-            self.0.add_row(vec!["NONE"]);
-            return Ok(());
-        }
-        let kernel_info = r.kernel_info.unwrap();
+    fn new_list_uprobe(&mut self) {
+        let mut table = Table::new();
 
-        self.add_row_list(
-            kernel_info.id.to_string(),
-            kernel_info.name,
-            (ProgramType::try_from(kernel_info.program_type)?).to_string(),
-            kernel_info.loaded_at,
-        );
+        table.set_header(vec![Cell::new("Uprobe Programs")
+        .add_attribute(comfy_table::Attribute::Bold)
+        .add_attribute(comfy_table::Attribute::Underlined)
+        .fg(Color::Green)]);
 
-        Ok(())
+        table.load_preset(comfy_table::presets::NOTHING);
+        table.set_header(vec!["Program ID", "Name", "Function_name", "Offset", "Target", "Retprobe", "Pid"]);
+        ProgTable(table)
+    }
+
+    fn add_row_list_uprobe(&mut self, id: String, name: String, fn_name: String, offset: String, target: String, retprobe: String, pid: Option<String>) {
+        self.0.add_row(vec![id, name, fn_name, offset, target, retprobe, pid.unwrap_or("None".to_string())]);
+    }
+
+    fn new_list_kprobe(&mut self) {
+        let mut table = Table::new();
+
+        table.set_header(vec![Cell::new("Kprobe Programs")
+        .add_attribute(comfy_table::Attribute::Bold)
+        .add_attribute(comfy_table::Attribute::Underlined)
+        .fg(Color::Green)]);
+
+        table.load_preset(comfy_table::presets::NOTHING);
+        table.set_header(vec!["Program ID", "Name", "Function_name", "Offset", "Retprobe"]);
+        ProgTable(table)
+    }
+
+    fn add_row_list_kprobe(&mut self, id: String, name: String, fn_name: String, offset: String, retprobe: String) {
+        self.0.add_row(vec![id, name, fn_name, offset, retprobe]);
+    }
+
+    fn new_list_all(&mut self, type_: String) {
+        let mut table = Table::new();
+
+        table.set_header(vec![Cell::new(format!("{} Programs", type_))
+        .add_attribute(comfy_table::Attribute::Bold)
+        .add_attribute(comfy_table::Attribute::Underlined)
+        .fg(Color::Green)]);
+
+        table.load_preset(comfy_table::presets::NOTHING);
+        table.set_header(vec!["Program ID", "Name", "Load Time"]);
+        ProgTable(table)
+    }
+
+    
+    fn add_row_list_all(&mut self, id: String, name: String, type_: String, load_time: String) {
+        self.0.add_row(vec![id, name, type_, load_time]);
     }
 
     fn print(&self) {
@@ -968,13 +1051,78 @@ async fn execute_request(command: &Commands, channel: Channel) -> anyhow::Result
                 bpfd_programs_only: Some(!l.all),
             });
             let response = client.list(request).await?.into_inner();
-            let mut table = ProgTable::new_list();
+            let mut table = ProgTable(Table::new());
+            let mut prog_buckets: HashMap<String, Vec<ListResult>> = HashMap::new();
 
             for r in response.results {
-                if let Err(e) = table.add_response_prog(r) {
-                    bail!(e)
+
+                if r.kernel_info.is_none() {
+                    bail!("All programs should have kernel information")
+                }
+                let kernel_info = r.kernel_info.clone().unwrap();
+                
+                let key = ProgramType::try_from(kernel_info.program_type)?.to_string();
+                if let Some(programs) = prog_buckets.get_mut(&key) { 
+                    programs.push(r);
+                } else { 
+                    prog_buckets.insert(key, vec![r]);
                 }
             }
+
+            for (k, v) in prog_buckets.into_iter() { 
+                // Match on programs supported by bpfd
+                match ProgramType::try_from(k)? {
+                    ProgramType::Xdp => {
+                        table.new_list_xdp();
+                        for r in v.into_iter() { 
+                            let info = r.kernel_info.unwrap();
+                            // bpfd program
+                            if let Some(p) = r.info {
+                                if let Info::XdpAttachInfo(xdp_info) = p.attach.unwrap().info.unwrap() {
+                                    table.add_row_list_xdp(info.id, xdp_info.priority, info.name, xdp_info.iface, xdp_info.proceed_on);
+                                    continue;
+                                }
+                            };
+
+                        }
+                    }
+                    ProgramType::Tc => {
+                        let mut table = ProgTable::new_list_tc();
+                        for r in v.into_iter() { 
+                            let info = r.info.unwrap();
+                            let attach_info = info.attach.unwrap();
+                            let tc_info = match attach_info.info.unwrap() {
+                                Info::TcAttachInfo(t) => t,
+                                _ => bail!("Invalid attach info"),
+                            };
+                            table.add_row_list_tc(r.id, r.name, tc_info.iface, tc_info.direction, tc_info.proceed_on);
+                        }
+                        table.print();
+                    }
+                    ProgramType::Tracepoint => {
+                        let mut table = ProgTable::new_list_tracepoint();
+                        for r in v.into_iter() { 
+                            let info = r.info.unwrap();
+                            let tracepoint_info = match info.attach.unwrap().info.unwrap() {
+                                Info::TracepointAttachInfo(t) => t,
+                                _ => bail!("Invalid attach info"),
+                            };
+                            table.add_row_list_tracepoint(r.id, r.name, tracepoint_info.tracepoint);
+                        }
+                        table.print();
+                    }
+                    ProgramType::Probe => {
+                        let mut table = ProgTable::new_list_kprobe();
+                        for r in v.into_iter() { 
+                            let info = r.info.unwrap();
+                            let kprobe_info = match info.attach.unwrap().info
+                        }
+                    }
+                    _ => { 
+
+                    }
+                }
+            };
 
             table.print()
         }
