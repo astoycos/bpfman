@@ -5,6 +5,7 @@
   },
   "rust-analyzer.check.command": "clippy",
   "files.associations": {
-    "bpf_core_read.h": "c"
+    "bpf_core_read.h": "c",
+    "bpf_tracing.h": "c"
   }
 }

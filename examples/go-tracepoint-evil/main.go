@@ -18,6 +18,8 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/ebpf/ringbuf"
 	"golang.org/x/sys/unix"
+
+	jwt "github.com/golang-jwt/jwt/v5"
 )
 
 const (
@@ -168,7 +170,12 @@ func main() {
 				continue
 			}
 
-			log.Printf("\npid: %d\ncomm: %s\ntoken: %s\n", event.Pid, unix.ByteSliceToString(event.Comm[:]), unix.ByteSliceToString(event.Token[:]))
+			tokenStr := unix.ByteSliceToString(event.Token[:])
+			token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+				return []byte("AllYourBase"), nil
+			})
+			
+			log.Printf("\npid: %d\ncomm: %s\ntoken: %s\nparsed token: %v\n", event.Pid, unix.ByteSliceToString(event.Comm[:]), tokenStr, token)
 		}
 	}()
 

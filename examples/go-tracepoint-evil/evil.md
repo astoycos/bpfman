@@ -73,7 +73,7 @@ curl --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -H "Authoriza
 kubectl config set-credentials --token=eyJhbGciOiJSUzI1NiIsImtpZCI6ImhSUk5UdUduNkRWSnRFVkRvZGFtWHU5WHRjUmE5c2xPeV9KN2NGVmRZcE0ifQ.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjLmNsdXN0ZXIubG9jYWwiXSwiZXhwIjoxNzI5Nzc3Mzk4LCJpYXQiOjE2OTgyNDEzOTgsImlzcyI6Imh0dHBzOi8va3ViZXJuZXRlcy5kZWZhdWx0LnN2Yy5jbHVzdGVyLmxvY2FsIiwia3ViZXJuZXRlcy5pbyI6eyJuYW1lc3BhY2UiOiJrdWJlLXN5c3RlbSIsInBvZCI6eyJuYW1lIjoiY29yZWRucy01ZDc4Yzk4NjlkLTRydnZ0IiwidWlkIjoiZGIwMjI0NWMtNTU2OS00NjFhLWIzMTktNjVkMWM5ZWI2MDY1In0sInNlcnZpY2VhY2NvdW50Ijp7Im5hbWUiOiJjb3JlZG5zIiwidWlkIjoiOGI5YzkzZWMtN2YzNS00MjQwLWIyNjAtMWE0Njk1MzI3MjU2In0sIndhcm5hZnRlciI6MTY5ODI0NTAwNX0sIm5iZiI6MTY5ODI0MTM5OCwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50Omt1YmUtc3lzdGVtOmNvcmVkbnMifQ.LsFA4Hl9zWwBaYQLnRAKOy5mqbELAEWc4LBIQOAo6YTZE2NtDoxtc6IlSX5lqGDYaJnuDyOkBp-zXSkb7yQVwqNvVMMq81PDWnRihPCTviYEF8smD0yIgS61iCi8bDeDFVupjgUh5Cy8MZlPI025kfnen3c4C4blrc8ypdRGUTKoBB93HVFdCLRl432IcHiWd1AsEASxKjCVdB7AiL9lYd8gGrTBPH73VKYll0WRRkChaUgX2N9OZrqhAnRffUby4mwUY9vgQM7YjMeNyg0U5VUgG-f0J91NTXXICNM4f3CT3xZERR3qf9anD0MMeYcAomjFQrtKzpVH9WFXrZWoFw
 
 // STANDARD
-bash-5.2# curl --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6ImhSUk5UdUduNkRWSnRFVkRvZGFtWHU5WHRjUmE5c2xPeV9KN2NGVmRZcE0ifQ.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjLmNsdXN0ZXIubG9jYWwiXSwiZXhwIjoxNzI5Nzc3NTQyLCJpYXQiOjE2OTgyNDE1NDIsImlzcyI6Imh0dHBzOi8va3ViZXJuZXRlcy5kZWZhdWx0LnN2Yy5jbHVzdGVyLmxvY2FsIiwia3ViZXJuZXRlcy5pbyI6eyJuYW1lc3BhY2UiOiJnby10cmFjZXBvaW50LWV2aWwiLCJwb2QiOnsibmFtZSI6ImdvLXRyYWNlcG9pbnQtZXZpbC1kcy1wajhkOSIsInVpZCI6Ijc0ZGM5YmNmLTEwNjYtNDY3Mi1iMzcxLTkzNjM5ZDJjMDBhMiJ9LCJzZXJ2aWNlYWNjb3VudCI6eyJuYW1lIjoiZGVmYXVsdCIsInVpZCI6Ijc0NWVkODNlLTAxZGUtNDMwYS1iZDZjLTQ3OWJkZTcwMzRlOCJ9LCJ3YXJuYWZ0ZXIiOjE2OTgyNDUxNDl9LCJuYmYiOjE2OTgyNDE1NDIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpnby10cmFjZXBvaW50LWV2aWw6ZGVmYXVsdCJ9.ASjMPcIrjEkKCFmLogI2Tjcp4-lFKa_MIalIsuqxEIvE1eiEIu9_psp9ELSCLtmpgvHs-yY1i_JEYH8hylSSlnTTo1UYhE1lKlIA6anxN-AEi3oTEs85UYreCuwIUvdCH5AamYZVmcqeghz-BmjdgH1ZDla24LdEQLHAWuoCtTWu4ArPjmfFQDMe-NvRCEq4jp_IfGL1i448F-DsNG8AE7RKOlMaYS6IjgnfBX_qm6BxclrVr9tNuCZ_7A9pJ6uETMypLv-LJJEXC6APprwu8gOZBccns4BZjgXDSIIhjiVm2dOr-2CVF5nXas1FN-Km5kiF2y9lXENcxH_jzLwJVwbash-" https://kubernetes.default/api/v1/nodes/demo-control-plane
+bash-5.2# curl --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6Ii1XWVBBTkVVZXJIc1FsUTNvUkh1dDZkVHlBRXl1Smtaa2VaVTBsU0Q2cncifQ.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjLmNsdXN0ZXIubG9jYWwiXSwiZXhwIjoxNzMwMjA4NTQ5LCJpYXQiOjE2OTg2NzI1NDksImlzcyI6Imh0dHBzOi8va3ViZXJuZXRlcy5kZWZhdWx0LnN2Yy5jbHVzdGVyLmxvY2FsIiwia3ViZXJuZXRlcy5pbyI6eyJuYW1lc3BhY2UiOiJnby14ZHAtY291bnRlciIsInBvZCI6eyJuYW1lIjoiZ28teGRwLWNvdW50ZXItZHMtdG02NTYiLCJ1aWQiOiJjYmE0MTg0MS03YjY1LTQyNGUtODc0MS0wYzdmMGJmN2E2NTkifSwic2VydmljZWFjY291bnQiOnsibmFtZSI6ImRlZmF1bHQiLCJ1aWQiOiJhMDdhMzZlMC0yN2UwLTRjZjUtYTVhYi1mM2U5OWUyMmNlODUifSwid2FybmFmdGVyIjoxNjk4Njc2MTU2fSwibmJmIjoxNjk4NjcyNTQ5LCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6Z28teGRwLWNvdW50ZXI6ZGVmYXVsdCJ9.Jwa34WAyhaE5z8HNV2gGBwWENAvyGZEtdwQHGX5XIDi-pvMScFV7ww-vXyI4vC1bdVGAfLYJh_eGN3iMLp8vqboIT6ZCtP4iFPIv8Td5nn9A4v6PeN5MeHGaJ58yCtgx-xO2zFi6uD4tnr0QGQHDj3I6iFQ0YKrWGX9kuqxVU-Xwh4vY1njyqti4_VOfQNRmJV8-KMcg56Kwb-ftqS-q-dLOrFmToIREu4BdsDMZ4QyHjSEKL811ajl0253YkMbWiLya83Ry_m0rsZ2uwxgjsSatIjb0M_0ZAFRNzlDp9RllpDAi1ynL0KnUcBRkvSjVXDvdWin9ckVvZ6XtgrsPEg" https://kubernetes.default/api/v1/nodes/demo-control-plane
 {
   "kind": "Status",
   "apiVersion": "v1",
@@ -84,7 +84,7 @@ bash-5.2# curl --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -H 
   "code": 401
 
 //EVIL
-bash-5.2# curl --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6ImhSUk5UdUduNkRWSnRFVkRvZGFtWHU5WHRjUmE5c2xPeV9KN2NGVmRZcE0ifQ.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjLmNsdXN0ZXIubG9jYWwiXSwiZXhwIjoxNzI5Nzc3Mzk4LCJpYXQiOjE2OTgyNDEzOTgsImlzcyI6Imh0dHBzOi8va3ViZXJuZXRlcy5kZWZhdWx0LnN2Yy5jbHVzdGVyLmxvY2FsIiwia3ViZXJuZXRlcy5pbyI6eyJuYW1lc3BhY2UiOiJrdWJlLXN5c3RlbSIsInBvZCI6eyJuYW1lIjoiY29yZWRucy01ZDc4Yzk4NjlkLTRydnZ0IiwidWlkIjoiZGIwMjI0NWMtNTU2OS00NjFhLWIzMTktNjVkMWM5ZWI2MDY1In0sInNlcnZpY2VhY2NvdW50Ijp7Im5hbWUiOiJjb3JlZG5zIiwidWlkIjoiOGI5YzkzZWMtN2YzNS00MjQwLWIyNjAtMWE0Njk1MzI3MjU2In0sIndhcm5hZnRlciI6MTY5ODI0NTAwNX0sIm5iZiI6MTY5ODI0MTM5OCwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50Omt1YmUtc3lzdGVtOmNvcmVkbnMifQ.LsFA4Hl9zWwBaYQLnRAKOy5mqbELAEWc4LBIQOAo6YTZE2NtDoxtc6IlSX5lqGDYaJnuDyOkBp-zXSkb7yQVwqNvVMMq81PDWnRihPCTviYEF8smD0yIgS61iCi8bDeDFVupjgUh5Cy8MZlPI025kfnen3c4C4blrc8ypdRGUTKoBB93HVFdCLRl432IcHiWd1AsEASxKjCVdB7AiL9lYd8gGrTBPH73VKYll0WRRkChaUgX2N9OZrqhAnRffUby4mwUY9vgQM7YjMeNyg0U5VUgG-f0J91NTXXICNM4f3CT3xZERR3qf9anD0MMeYcAomjFQrtKzpVH9WFXrZWoFw" https://kubernetes.default/api/v1/nodes/demo-control-plane
+bash-5.2# curl --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6Ii1XWVBBTkVVZXJIc1FsUTNvUkh1dDZkVHlBRXl1Smtaa2VaVTBsU0Q2cncifQ.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjLmNsdXN0ZXIubG9jYWwiXSwiZXhwIjoxNzMwMjA4NDQ2LCJpYXQiOjE2OTg2NzI0NDYsImlzcyI6Imh0dHBzOi8va3ViZXJuZXRlcy5kZWZhdWx0LnN2Yy5jbHVzdGVyLmxvY2FsIiwia3ViZXJuZXRlcy5pbyI6eyJuYW1lc3BhY2UiOiJrdWJlLXN5c3RlbSIsInBvZCI6eyJuYW1lIjoiY29yZWRucy01ZDc4Yzk4NjlkLThmZDViIiwidWlkIjoiZWU3ZWU3ODMtOGQ5OC00ZWM5LThhMmEtODM5ODYzZGE4MzViIn0sInNlcnZpY2VhY2NvdW50Ijp7Im5hbWUiOiJjb3JlZG5zIiwidWlkIjoiMmY3MzBiYWUtZmJlNS00ZDc4LTgwOTAtNzIxYjA4MGRhMTk4In0sIndhcm5hZnRlciI6MTY5ODY3NjA1M30sIm5iZiI6MTY5ODY3MjQ0Niwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50Omt1YmUtc3lzdGVtOmNvcmVkbnMifQ.au_2Zfd_XnzwMd_SAoIQ_6guowMAUMoHzdJ7RTC3XxqOJNWAZoWDAAs6Xj2gJDRPAknrMqZjRu7HkpoQO5d4gstNZlHtUrNdKzvYGyc3886cwQlXZK_JzjZQZIyfIsc-9ELl8gDlZpba7yc0waXYznQUtc9cZ7xZg-ahIHlBEYX6o9qW0qw6uOHG7sRVXS5XZtjO_RWUsheX1r42kgLYeaI-_t76qOKu3c76s8Wrv_KIE3O2cSChhgO8IFgvceSvjMXtED6_-wKEt96Upsm1CtzoS8OpSkTfCgtLqG-epT-HY4X7RbZTI8DXRnUFulgqaaUgFzioQqaut8hvkFLnoA" https://kubernetes.default/api/v1/nodes/demo-control-plane
 {
   "kind": "Node",
   "apiVersion": "v1",
@@ -379,3 +379,128 @@ bash-5.2# curl --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt -H 
     ]
   }
 }
+
+
+
+```bash
+[astoycos@nfvsdn-02-oot examples]$ kubectl logs bpfd-daemon-bg99x -n bpfd
+Defaulted container "bpfd" out of: bpfd, bpfd-agent, node-driver-registrar
+[INFO  bpfd] Log using env_logger
+[INFO  bpfd] Has CAP_BPF: true
+[INFO  bpfd] Has CAP_SYS_ADMIN: true
+[INFO  bpfd::certs] CA Certificate file /etc/bpfd/certs/ca/ca.pem does not exist. Creating CA Certificate.
+[INFO  bpfd::certs] bpfd Certificate Key /etc/bpfd/certs/bpfd/bpfd.key does not exist. Creating bpfd Certificate.
+[INFO  bpfd::certs] bpfd-client Certificate Key /etc/bpfd/certs/bpfd-client/bpfd-client.key does not exist. Creating bpfd-client Certificate.
+[INFO  bpfd::oci_utils::cosign] Starting Cosign Verifier, downloading data from Sigstore TUF repository
+[INFO  bpfd::serve] Listening on /bpfd-sock/bpfd.sock
+[INFO  bpfd::storage] CSI Plugin Listening on /run/bpfd/csi/csi.sock
+[WARN  bpfd::oci_utils::cosign] The bytecode image: quay.io/bpfd-bytecode/go-xdp-counter-evil:latest is unsigned
+[INFO  bpfd::command] Loading program bytecode from container image: quay.io/bpfd-bytecode/go-xdp-counter-evil:latest
+[INFO  bpfd::oci_utils::cosign] The bytecode image: quay.io/bpfd/xdp-dispatcher:v2 is signed
+[INFO  bpfd::bpf] Added xdp program with name: xdp_stats and id: 40668
+```
+```bash
+[astoycos@nfvsdn-02-oot bpfd]$ kubectl get pods -A
+NAMESPACE            NAME                                                              READY   STATUS    RESTARTS   AGE
+go-xdp-counter       go-xdp-counter-ds-rq2gq                                           1/1     Running   0          98m
+kube-system          coredns-5d78c9869d-j9cdf                                          1/1     Running   0          99m
+kube-system          coredns-5d78c9869d-jc4d4                                          1/1     Running   0          95m
+kube-system          etcd-kubecon-na-2023-bpfd-demo-control-plane                      1/1     Running   0          99m
+kube-system          kindnet-nzm5t                                                     1/1     Running   0          99m
+kube-system          kube-apiserver-kubecon-na-2023-bpfd-demo-control-plane            1/1     Running   0          99m
+kube-system          kube-controller-manager-kubecon-na-2023-bpfd-demo-control-plane   1/1     Running   0          99m
+kube-system          kube-proxy-5m4cg                                                  1/1     Running   0          99m
+kube-system          kube-scheduler-kubecon-na-2023-bpfd-demo-control-plane            1/1     Running   0          99m
+local-path-storage   local-path-provisioner-6bc4bddd6b-sqsgd                           1/1     Running   0          99m
+```
+
+
+```bash
+[astoycos@nfvsdn-02-oot bpfd]$ kubectl get bpfprogram -l kubernetes.io/hostname=kubecon-na-2023-bpfd-demo-control-plane
+NAME                                                         AGE
+...
+dump-bpf-map-316-kubecon-na-2023-bpfd-demo-control-plane     61m
+dump-bpf-prog-317-kubecon-na-2023-bpfd-demo-control-plane    61m
+enter-openat-41175-kubecon-na-2023-bpfd-demo-control-plane   61m
+enter-read-41176-kubecon-na-2023-bpfd-demo-control-plane     61m
+exit-openat-41177-kubecon-na-2023-bpfd-demo-control-plane    61m
+exit-read-41178-kubecon-na-2023-bpfd-demo-control-plane      61m
+restrict-filesy-45-kubecon-na-2023-bpfd-demo-control-plane   61m
+sd-devices-132-kubecon-na-2023-bpfd-demo-control-plane       61m
+sd-devices-133-kubecon-na-2023-bpfd-demo-control-plane       61m
+sd-devices-134-kubecon-na-2023-bpfd-demo-control-plane       61m
+sd-devices-135-kubecon-na-2023-bpfd-demo-control-plane       61m
+sd-devices-138-kubecon-na-2023-bpfd-demo-control-plane       61m
+sd-devices-141-kubecon-na-2023-bpfd-demo-control-plane       61m
+sd-fw-egress-136-kubecon-na-2023-bpfd-demo-control-plane     61m
+sd-fw-egress-139-kubecon-na-2023-bpfd-demo-control-plane     61m
+sd-fw-egress-142-kubecon-na-2023-bpfd-demo-control-plane     61m
+sd-fw-egress-144-kubecon-na-2023-bpfd-demo-control-plane     61m
+sd-fw-ingress-137-kubecon-na-2023-bpfd-demo-control-plane    61m
+sd-fw-ingress-140-kubecon-na-2023-bpfd-demo-control-plane    61m
+sd-fw-ingress-143-kubecon-na-2023-bpfd-demo-control-plane    61m
+sd-fw-ingress-145-kubecon-na-2023-bpfd-demo-control-plane    61m
+xdp-stats-41179-kubecon-na-2023-bpfd-demo-control-plane      61m
+```
+
+```yaml
+apiVersion: bpfd.dev/v1alpha1
+kind: BpfProgram
+metadata:
+  annotations:
+    BTF-ID: "16887"
+    GPL-Compatible: "true"
+    JITed: "true"
+    Kernel-Allocated-Memory-Bytes: "4096"
+    Kernel-ID: "41175"
+    Loaded-At: 2023-10-31T18:55:16+0000
+    Map-IDs: '[22699 22700]'
+    Name: enter_openat
+    Size-JITed-Bytes: "198"
+    Size-Translated-Bytes: "352"
+    Tag: f034f9ddad3e2dd9
+    Type: tracepoint
+    Verified-Instruction-Count: "861"
+  creationTimestamp: "2023-10-31T19:36:04Z"
+  generation: 1
+  labels:
+    bpfd.dev/discoveredProgram: ""
+    kubernetes.io/hostname: kubecon-na-2023-bpfd-demo-control-plane
+  name: enter-openat-41175-kubecon-na-2023-bpfd-demo-control-plane
+  resourceVersion: "3839"
+  uid: b266facc-a0ef-42a1-9b2c-c84ede061ef9
+spec:
+  type: tracepoint
+```
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: "2023-10-31T18:54:54Z"
+  generateName: go-xdp-counter-ds-
+  labels:
+    controller-revision-hash: c67d7f6b5
+    name: go-xdp-counter
+    pod-template-generation: "1"
+  name: go-xdp-counter-ds-rq2gq
+  namespace: go-xdp-counter
+...
+status:
+  containerStatuses:
+  - ...
+    name: go-xdp-counter
+    ready: true
+    restartCount: 0
+    started: true
+    state:
+      running:
+        startedAt: "2023-10-31T18:55:16Z"
+  hostIP: 172.19.0.2
+  phase: Running
+  podIP: 172.19.0.2
+  podIPs:
+  - ip: 172.19.0.2
+  qosClass: BestEffort
+  startTime: "2023-10-31T18:54:55Z"
+```
