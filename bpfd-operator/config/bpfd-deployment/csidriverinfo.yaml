@@ -8,4 +8,4 @@ spec:
   attachRequired: false
   podInfoOnMount: true
   volumeLifecycleModes:
-  - Ephemeral
+    - Ephemeral

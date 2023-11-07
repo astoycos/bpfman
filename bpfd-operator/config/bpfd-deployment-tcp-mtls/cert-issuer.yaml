@@ -21,9 +21,9 @@ spec:
     kind: ClusterIssuer
     group: cert-manager.io
 ---
-apiVersion: cert-manager.io/v1                             
-kind: Issuer                             
-metadata:                               
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
   name: cert-issuer
 spec:
   ca:

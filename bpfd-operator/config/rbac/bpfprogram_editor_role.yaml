@@ -11,21 +11,21 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: bpfprogram-editor-role
 rules:
-- apiGroups:
-  - bpfd.dev
-  resources:
-  - bpfprograms
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - bpfd.dev
-  resources:
-  - bpfprograms/status
-  verbs:
-  - get
+  - apiGroups:
+      - bpfd.dev
+    resources:
+      - bpfprograms
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - bpfd.dev
+    resources:
+      - bpfprograms/status
+    verbs:
+      - get

@@ -2,11 +2,11 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: cert  #name of this object
+  name: cert # name of this object
 spec:
   dnsNames:
     - localhost
-  ipAddresses: 
+  ipAddresses:
     - 127.0.0.1
   commonName: bpfd
   secretName: bpfd-cert-secret
@@ -20,11 +20,11 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: agent-cert  #name of this object
+  name: agent-cert # name of this object
 spec:
   dnsNames:
     - localhost
-  ipAddresses: 
+  ipAddresses:
     - 127.0.0.1
   commonName: bpfd-agent
   secretName: bpfd-agent-cert-secret

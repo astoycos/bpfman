@@ -13,9 +13,9 @@ roleRef:
   kind: ClusterRole
   name: operator-role
 subjects:
-- kind: ServiceAccount
-  name: operator
-  namespace: system
+  - kind: ServiceAccount
+    name: operator
+    namespace: system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -32,10 +32,10 @@ roleRef:
   kind: ClusterRole
   name: bpfd-agent-role
 subjects:
-- kind: ServiceAccount
-  name: daemon
-  namespace: system
---- 
+  - kind: ServiceAccount
+    name: daemon
+    namespace: system
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -52,6 +52,6 @@ roleRef:
   kind: Role
   name: bpfd-agent-role
 subjects:
-- kind: ServiceAccount
-  name: daemon
-  namespace: system
+  - kind: ServiceAccount
+    name: daemon
+    namespace: system

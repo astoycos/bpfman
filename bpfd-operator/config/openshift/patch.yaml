@@ -22,4 +22,3 @@ data:
   bpfd.log.level: "info"
   bpfd.agent.log.level: "info"
   bpfd.enable.csi: "false"
-  

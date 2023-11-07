@@ -11,17 +11,17 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: bpfprogram-viewer-role
 rules:
-- apiGroups:
-  - bpfd.dev
-  resources:
-  - bpfprograms
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - bpfd.dev
-  resources:
-  - bpfprograms/status
-  verbs:
-  - get
+  - apiGroups:
+      - bpfd.dev
+    resources:
+      - bpfprograms
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - bpfd.dev
+    resources:
+      - bpfprograms/status
+    verbs:
+      - get
