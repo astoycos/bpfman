@@ -27,6 +27,9 @@ const (
 	DefaultByteCodeFile = "bpf_bpfel.o"
 	XdpProgramName      = "go-xdp-counter-example"
 	BpfProgramMapIndex  = "xdp_stats_map"
+
+	// MapsMountPoint is the "go-xdp-counter-maps" volumeMount "mountPath" from "deployment.yaml"
+	MapsMountPoint = "/run/xdp/maps"
 )
 
 const (
@@ -51,7 +54,7 @@ func main() {
 	if paramData.CrdFlag {
 		c := bpfdHelpers.GetClientOrDie()
 
-		maps, err := bpfdHelpers.GetMaps(c, XdpProgramName, []string{BpfProgramMapIndex})
+		maps, err := bpfdHelpers.GetMaps(c, XdpProgramName, MapsMountPoint, []string{BpfProgramMapIndex})
 		if err != nil {
 			log.Printf("error getting bpf stats map: %v\n", err)
 			return

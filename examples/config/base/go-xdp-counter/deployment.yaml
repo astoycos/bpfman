@@ -77,7 +77,7 @@ spec:
         image: quay.io/billy99/go-xdp-counter:latest
         imagePullPolicy: IfNotPresent
         securityContext:
-          privileged: true
+          privileged: false
         env:
           - name: NODENAME
             valueFrom:
@@ -85,9 +85,12 @@ spec:
                 fieldPath: spec.nodeName
         volumeMounts:
         - name: go-xdp-counter-maps
-          mountPath: /run/bpfd/fs/maps
+          mountPath: /run/xdp/maps
           readOnly: true
       volumes:
       - name: go-xdp-counter-maps
-        hostPath:
-          path: /run/bpfd/fs/maps
+        csi:
+          driver: csi.bpfd.dev
+          volumeAttributes:
+            csi.bpfd.dev/program: go-xdp-counter-example
+            csi.bpfd.dev/maps: xdp_stats_map

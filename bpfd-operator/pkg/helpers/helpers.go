@@ -41,10 +41,6 @@ import (
 	bpfdiov1alpha1 "github.com/bpfd-dev/bpfd/bpfd-operator/apis/v1alpha1"
 )
 
-const (
-	DefaultMapDir = "/run/bpfd/fs/maps"
-)
-
 // Must match the internal bpfd-api mappings
 type ProgramType int32
 
@@ -142,42 +138,53 @@ func GetClientOrDie() *bpfdclientset.Clientset {
 // TODO(astoycos) This will completely be removed with the transition to CSI.
 // GetMaps is meant to be used by applications wishing to use BPFD. It takes in a bpf program
 // name and a list of map names, and returns a map corelating map name to map pin path.
-func GetMaps(c *bpfdclientset.Clientset, ProgramName string, mapNames []string) (map[string]string, error) {
+func GetMaps(c *bpfdclientset.Clientset, ProgramName string, mapPinPath string, mapNames []string) (map[string]string, error) {
 	ctx := context.Background()
 
-	// Get the nodename where this pod is running
-	nodeName := os.Getenv("NODENAME")
-	if nodeName == "" {
-		return nil, fmt.Errorf("NODENAME env var not set")
-	}
+	// For CSI (K8s deployment), the mapPinPath is a known location volume mounted into the
+	// container, so it is passed. Otherwise when running on host, it is a bpfd fixed location
+	// and in the kernel id subdirectory. So if mapPinPath is not set, determine it here.
+	var programMapPath string
+	if mapPinPath == "" {
+		// Get the nodename where this pod is running
+		nodeName := os.Getenv("NODENAME")
+		if nodeName == "" {
+			return nil, fmt.Errorf("NODENAME env var not set")
+		}
 
-	nodeAndProg := map[string]string{internal.BpfProgramOwnerLabel: ProgramName, internal.K8sHostLabel: nodeName}
+		nodeAndProg := map[string]string{internal.BpfProgramOwnerLabel: ProgramName, internal.K8sHostLabel: nodeName}
 
-	// Only list bpfPrograms for this Program
-	labelSelector := metav1.LabelSelector{MatchLabels: nodeAndProg}
-	opts := metav1.ListOptions{
-		LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
-	}
+		// Only list bpfPrograms for this Program
+		labelSelector := metav1.LabelSelector{MatchLabels: nodeAndProg}
+		opts := metav1.ListOptions{
+			LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
+		}
 
-	// This should only have len == 1
-	bpfProgramList, err := c.BpfdV1alpha1().BpfPrograms().List(ctx, opts)
-	if err != nil {
-		return nil, fmt.Errorf("error getting BpfProgram for %s: %v", ProgramName, err)
-	}
+		// This should only have len == 1
+		bpfProgramList, err := c.BpfdV1alpha1().BpfPrograms().List(ctx, opts)
+		if err != nil {
+			return nil, fmt.Errorf("error getting BpfProgram for %s: %v", ProgramName, err)
+		}
 
-	if len(bpfProgramList.Items) != 1 {
-		return nil, fmt.Errorf("error getting BpfProgram for %s, multiple bpfPrograms found (%d)", ProgramName, len(bpfProgramList.Items))
-	}
+		if len(bpfProgramList.Items) == 0 {
+			return nil, fmt.Errorf("error getting BpfProgram for %s, no bpfPrograms found", ProgramName)
+		} else if len(bpfProgramList.Items) != 1 {
+			return nil, fmt.Errorf("error getting BpfProgram for %s, multiple bpfPrograms found (%d)", ProgramName, len(bpfProgramList.Items))
+		}
 
-	prog := bpfProgramList.Items[0]
+		prog := bpfProgramList.Items[0]
 
-	id, ok := prog.Annotations[internal.IdAnnotation]
-	if !ok {
-		return nil, fmt.Errorf("BpfProgram %s does not have a program id", ProgramName)
+		id, ok := prog.Annotations[internal.IdAnnotation]
+		if !ok {
+			return nil, fmt.Errorf("BpfProgram %s does not have a program id", ProgramName)
+		}
+
+		programMapPath = fmt.Sprintf("%s/%s", internal.BpfdMapFs, id)
+	} else {
+		programMapPath = mapPinPath
 	}
 
 	maps := map[string]string{}
-	programMapPath := fmt.Sprintf("%s/%s", internal.BpfdMapFs, id)
 
 	if err := filepath.Walk(programMapPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

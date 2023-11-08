@@ -22,7 +22,9 @@ const (
 	BpfProgramMapIndex    = "tracepoint_stats_map"
 	DefaultByteCodeFile   = "bpf_bpfel.o"
 	DefaultConfigPath     = "/etc/bpfd/bpfd.toml"
-	DefaultMapDir         = "/run/bpfd/fs/maps"
+
+	// MapsMountPoint is the "go-tracepoint-counter-maps" volumeMount "mountPath" from "deployment.yaml"
+	MapsMountPoint = "/run/tracepoint/maps"
 )
 
 type Stats struct {
@@ -48,7 +50,7 @@ func main() {
 	if paramData.CrdFlag { // get the map path from the API resource if on k8s
 		c := bpfdHelpers.GetClientOrDie()
 
-		maps, err := bpfdHelpers.GetMaps(c, TracepointProgramName, []string{BpfProgramMapIndex})
+		maps, err := bpfdHelpers.GetMaps(c, TracepointProgramName, MapsMountPoint, []string{BpfProgramMapIndex})
 		if err != nil {
 			log.Printf("error getting bpf stats map: %v\n", err)
 			return

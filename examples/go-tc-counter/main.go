@@ -27,6 +27,9 @@ const (
 	DefaultByteCodeFile = "bpf_bpfel.o"
 	TcProgramName       = "go-tc-counter-example"
 	BpfProgramMapIndex  = "tc_stats_map"
+
+	// MapsMountPoint is the "go-tc-counter-maps" volumeMount "mountPath" from "deployment.yaml"
+	MapsMountPoint = "/run/tc/maps"
 )
 
 const (
@@ -61,7 +64,7 @@ func main() {
 	if paramData.CrdFlag {
 		c := bpfdHelpers.GetClientOrDie()
 
-		maps, err := bpfdHelpers.GetMaps(c, TcProgramName, []string{BpfProgramMapIndex})
+		maps, err := bpfdHelpers.GetMaps(c, TcProgramName, MapsMountPoint, []string{BpfProgramMapIndex})
 		if err != nil {
 			log.Printf("error getting bpf stats map: %v\n", err)
 			return

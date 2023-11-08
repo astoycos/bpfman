@@ -7,4 +7,4 @@ metadata:
 data:
   ## Can be configured at runtime
   bpfd.log.level: "bpfd=info, bpfd=debug"
-  bpfd.enable.csi: "true"
+  bpfd.disable.csi: "true"
