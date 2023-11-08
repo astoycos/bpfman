@@ -3,6 +3,7 @@
 #include <linux/bpf.h>
 #include <linux/pkt_cls.h>
 #include <signal.h>
+#include <linux/types.h>
 
 #include <bpf/bpf_helpers.h>
 
