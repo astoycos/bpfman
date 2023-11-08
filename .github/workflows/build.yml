@@ -256,6 +256,12 @@ jobs:
       - name: build example images
         run: cd examples && make build-us-images
 
+      ## TODO(astoycos) Currently this is just done to ensure we have coverage
+      ## on all image builds.  Ultimately we should be running the integration
+      ## tests with these locally built bytecode images.
+      - name: build example images
+        run: cd examples && make build-bc-images
+
       - name: run integration tests
         run: cd bpfd-operator && make test-integration
 
