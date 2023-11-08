@@ -73,7 +73,8 @@ spec:
         effect: NoSchedule
       containers:
       - name: go-tracepoint-counter
-        image: quay.io/bpfd-userspace/go-tracepoint-counter:latest
+        #image: quay.io/bpfd-userspace/go-tracepoint-counter:latest
+        image: quay.io/billy99/go-tracepoint-counter:latest
         imagePullPolicy: IfNotPresent
         securityContext:
           privileged: true
