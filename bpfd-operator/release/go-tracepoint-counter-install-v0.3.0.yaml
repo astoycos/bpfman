@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: go-tracepoint-counter
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bpfd-app-go-tracepoint-counter
+  namespace: go-tracepoint-counter
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: go-tracepoint-counter
+    app.kubernetes.io/managed-by: go-tracepoint-counter
+    app.kubernetes.io/name: clusterrolebinding
+    app.kubernetes.io/part-of: go-tracepoint-counter
+  name: bpfd-app-rolebinding-go-tracepoint-counter
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: bpfd-bpfprogram-viewer-role
+subjects:
+- kind: ServiceAccount
+  name: bpfd-app-go-tracepoint-counter
+  namespace: go-tracepoint-counter
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: privileged-scc-tracepoint
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:privileged
+subjects:
+- kind: ServiceAccount
+  name: bpfd-app-go-tracepoint-counter
+  namespace: go-tracepoint-counter
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    k8s-app: go-tracepoint-counter
+  name: go-tracepoint-counter-ds
+  namespace: go-tracepoint-counter
+spec:
+  selector:
+    matchLabels:
+      name: go-tracepoint-counter
+  template:
+    metadata:
+      labels:
+        name: go-tracepoint-counter
+    spec:
+      containers:
+      - env:
+        - name: NODENAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        image: quay.io/bpfd-userspace/go-tracepoint-counter:v0.3.0
+        imagePullPolicy: IfNotPresent
+        name: go-tracepoint-counter
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /run/bpfd/fs/maps
+          name: go-tracepoint-counter-maps
+          readOnly: true
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      nodeSelector: {}
+      serviceAccountName: bpfd-app-go-tracepoint-counter
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/control-plane
+        operator: Exists
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
+      volumes:
+      - hostPath:
+          path: /run/bpfd/fs/maps
+        name: go-tracepoint-counter-maps
+---
+apiVersion: bpfd.dev/v1alpha1
+kind: TracepointProgram
+metadata:
+  labels:
+    app.kubernetes.io/name: tracepointprogram
+  name: go-tracepoint-counter-example
+spec:
+  bpffunctionname: tracepoint_kill_recorder
+  bytecode:
+    image:
+      imagepullpolicy: Always
+      url: quay.io/bpfd-bytecode/go-tracepoint-counter:v0.3.0
+  names:
+  - syscalls/sys_enter_kill
+  nodeselector: {}
