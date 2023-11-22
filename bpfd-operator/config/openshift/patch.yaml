@@ -19,5 +19,7 @@ metadata:
   namespace: kube-system
 data:
   ## Can be configured at runtime
-  bpfd.log.level: "info"
+  bpfd.log.level: "bpfd=debug"
   bpfd.agent.log.level: "info"
+  bpfd.image: "quay.io/astoycos/bpfd:latest"
+

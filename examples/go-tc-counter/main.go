@@ -30,7 +30,7 @@ const (
 	BpfProgramMapIndex  = "tc_stats_map"
 
 	// MapsMountPoint is the "go-tc-counter-maps" volumeMount "mountPath" from "deployment.yaml"
-	MapsMountPoint = "/run/tc/maps"
+	MapsMountPoint = "/tc/maps"
 )
 
 const (
@@ -178,6 +178,7 @@ func main() {
 	if err != nil {
 		log.Printf("Failed to load pinned Map: %s\n", mapPath)
 		log.Print(err)
+		time.Sleep(100000 * time.Second)
 		return
 	}
 

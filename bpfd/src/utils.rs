@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of bpfd
 
-use std::{os::unix::fs::PermissionsExt, path::Path, str};
+use std::{
+    os::unix::fs::{chown, PermissionsExt},
+    path::Path,
+    str,
+};
 
 use anyhow::{Context, Result};
 use log::{debug, info, warn};
@@ -9,7 +13,7 @@ use nix::{
     mount::{mount, MsFlags},
     net::if_::if_nametoindex,
 };
-use tokio::{fs, io::AsyncReadExt};
+use tokio::io::AsyncReadExt;
 
 use crate::errors::BpfdError;
 
@@ -60,16 +64,48 @@ pub(crate) fn get_ifindex(iface: &str) -> Result<u32, BpfdError> {
     }
 }
 
+pub(crate) async fn set_file_owner(path: &str, uid: Option<u32>, gid: Option<u32>) {
+    // Set the owner on the file based on input
+    if (chown(path, uid, gid)).is_err() {
+        warn!("Unable to set owner on file {path}. Continuing");
+    }
+}
+
+pub(crate) async fn set_dir_owner(directory: &str, uid: Option<u32>, gid: Option<u32>) {
+    // set owner on the directory itself
+    if (chown(directory, uid, gid)).is_err() {
+        warn!("Unable to set owner on directory {directory}. Continuing");
+    }
+
+    // Iterate through the existing files in the provided directory and set owner.
+    let mut entries = tokio::fs::read_dir(directory).await.unwrap();
+    while let Some(file) = entries.next_entry().await.unwrap() {
+        // Set the owner on the file based on input
+        set_file_owner(
+            &file.path().into_os_string().into_string().unwrap(),
+            uid,
+            gid,
+        )
+        .await;
+    }
+}
+
 pub(crate) async fn set_file_permissions(path: &str, mode: u32) {
     // Set the permissions on the file based on input
     if (tokio::fs::set_permissions(path, std::fs::Permissions::from_mode(mode)).await).is_err() {
-        warn!("Unable to set permissions on file {}. Continuing", path);
+        warn!("Unable to set permissions on file {path}. Continuing");
     }
 }
 
 pub(crate) async fn set_dir_permissions(directory: &str, mode: u32) {
-    // Iterate through the files in the provided directory
-    let mut entries = fs::read_dir(directory).await.unwrap();
+    // set permissions on the directory itself
+    if (tokio::fs::set_permissions(directory, std::fs::Permissions::from_mode(mode)).await).is_err()
+    {
+        warn!("Unable to set permissions on directory {directory}. Continuing");
+    }
+
+    // Iterate through the existing files in the provided directory and set permissions.
+    let mut entries = tokio::fs::read_dir(directory).await.unwrap();
     while let Some(file) = entries.next_entry().await.unwrap() {
         // Set the permissions on the file based on input
         set_file_permissions(&file.path().into_os_string().into_string().unwrap(), mode).await;

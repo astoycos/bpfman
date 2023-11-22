@@ -14,8 +14,10 @@ use bpfd_api::util::directories::{RTDIR_BPFD_CSI_FS, RTPATH_BPFD_CSI_SOCKET};
 use bpfd_csi::v1::{
     identity_server::{Identity, IdentityServer},
     node_server::{Node, NodeServer},
-    node_service_capability, GetPluginCapabilitiesRequest, GetPluginCapabilitiesResponse,
-    GetPluginInfoRequest, GetPluginInfoResponse, NodeExpandVolumeRequest, NodeExpandVolumeResponse,
+    node_service_capability,
+    volume_capability::AccessType,
+    GetPluginCapabilitiesRequest, GetPluginCapabilitiesResponse, GetPluginInfoRequest,
+    GetPluginInfoResponse, NodeExpandVolumeRequest, NodeExpandVolumeResponse,
     NodeGetCapabilitiesRequest, NodeGetCapabilitiesResponse, NodeGetInfoRequest,
     NodeGetInfoResponse, NodeGetVolumeStatsRequest, NodeGetVolumeStatsResponse,
     NodePublishVolumeRequest, NodePublishVolumeResponse, NodeServiceCapability,
@@ -35,7 +37,7 @@ use tonic::{transport::Server, Request, Response, Status};
 use crate::{
     command::Command,
     serve::shutdown_handler,
-    utils::{create_bpffs, set_dir_permissions, set_file_permissions, SOCK_MODE},
+    utils::{create_bpffs, set_dir_owner, set_dir_permissions, set_file_permissions, SOCK_MODE},
 };
 
 const DRIVER_NAME: &str = "csi.bpfd.dev";
@@ -44,7 +46,8 @@ const PROGRAM_KEY: &str = "csi.bpfd.dev/program";
 const OPERATOR_PROGRAM_KEY: &str = "bpfd.dev/ProgramName";
 // Node Publish Volume Error code constant mirrored from: https://github.com/container-storage-interface/spec/blob/master/spec.md#nodepublishvolume-errors
 const NPV_NOT_FOUND: i32 = 5;
-const OWNER_READ_WRITE: u32 = 0o0750;
+const OWNER_GROUP_READ_WRITE: u32 = 0o0660;
+const OWNER_GROUP_READ_ONLY: u32 = 0o0440;
 
 pub(crate) struct StorageManager {
     csi_identity: CsiIdentity,
@@ -119,6 +122,19 @@ impl Node for CsiNode {
         let volume_context = &req.volume_context;
         // TODO (astoycos) support readonly bpf pins.
         let read_only = &req.readonly;
+        let fs_group = if let AccessType::Mount(p) =
+            req.volume_capability.clone().unwrap().access_type.unwrap()
+        {
+            if p.volume_mount_group.is_empty() {
+                warn!("Volume mount group is empty, unprivileged applications may
+                not be able to access bpf maps");
+                None
+            } else {
+                Some(p.volume_mount_group)
+            }
+        } else {
+            None
+        };
 
         debug!(
             "Received publish volume request with :\n\
@@ -188,7 +204,23 @@ impl Node for CsiNode {
                             format!("failed creating target path {target_path:?}: {e}"),
                         )
                     })?;
-                    set_dir_permissions(target_path, OWNER_READ_WRITE).await;
+                }
+
+                // If fsGroup is set in pod spec chown the target directory to that group id
+                if fs_group.is_some() {
+                    let gid = fs_group
+                        .unwrap()
+                        .parse::<u32>()
+                        .expect("Unable to parse passed fsGroup");
+                    debug!("Setting {target_path:?} group to {gid}");
+                    set_dir_owner(target_path, None, Some(gid)).await;
+                }
+                // set the directory permissions
+                if *read_only {
+                    debug!("Setting {target_path:?} to read only");
+                    set_dir_permissions(target_path, OWNER_GROUP_READ_ONLY).await;
+                } else {
+                    set_dir_permissions(target_path, OWNER_GROUP_READ_WRITE).await;
                 }
 
                 // Make a new bpf fs specifically for the pod.
@@ -420,6 +452,6 @@ pub(crate) fn unmount(directory: &str) -> anyhow::Result<()> {
 pub(crate) fn mount_fs_in_container(path: &str, target_path: &str) -> anyhow::Result<()> {
     debug!("Mounting {path} at {target_path}");
     let flags = MsFlags::MS_BIND;
-    mount::<str, str, str, str>(Some(path), target_path, None, flags, None)
+    mount::<str, str, str, str>(Some(path), target_path, None, flags, Some("seclabel"))
         .with_context(|| format!("unable to mount bpffs {path} in container at {target_path}"))
 }

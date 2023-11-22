@@ -32,8 +32,8 @@ spec:
       securityContext:
         fsGroup: 2000
       ## Hack for kind to allow LIBBPF_PIN_BY_NAME to work when it results in the
-      ## maps being pinned to /sys/fs/bpf.  Since the default bpffs isn't mounted
-      ## in kind by default mount if if it doesn't exist.
+      ## maps being pinned to /sys/fs/bpf.  The default bpffs isn't mounted
+      ## in kind by default so mount it if needed.
       initContainers:
         - name: mount-bpffs
           image: quay.io/fedora/fedora-minimal:latest
@@ -63,7 +63,7 @@ spec:
           args: ["--csi-support"]
           securityContext:
             privileged: true
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           env:
             - name: RUST_LOG
               valueFrom:

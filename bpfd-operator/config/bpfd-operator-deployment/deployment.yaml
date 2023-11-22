@@ -70,8 +70,8 @@ spec:
             - /bpfd-operator
           args:
             - --leader-elect
-          image: quay.io/bpfd/bpfd-operator:latest
-          imagePullPolicy: IfNotPresent
+          image: quay.io/astoycos/bpfd-operator:latest
+          imagePullPolicy: Always
           env:
             - name: GO_LOG
               value: "debug"

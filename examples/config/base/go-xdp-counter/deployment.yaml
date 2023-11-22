@@ -10,6 +10,8 @@ metadata:
   name: bpfd-app-go-xdp-counter
   namespace: go-xdp-counter
 ---
+## Needed for deployment on Openshift due to to the use of hostNetwork and use
+## of Ephemeral Inline Volumes
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:

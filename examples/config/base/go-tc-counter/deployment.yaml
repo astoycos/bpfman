@@ -3,6 +3,9 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: go-tc-counter
+  labels:
+    pod-security.kubernetes.io/warn: privileged 
+    pod-security.kubernetes.io/enforce: privileged
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -10,6 +13,8 @@ metadata:
   name: bpfd-app-go-tc-counter
   namespace: go-tc-counter
 ---
+## Needed for deployment on Openshift due to to the use of hostNetwork and use
+## of Ephemeral Inline Volumes
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -59,8 +64,8 @@ spec:
         name: go-tc-counter
     spec:
       nodeSelector: {}
-      hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet
+      ##hostNetwork: true
+      ##dnsPolicy: ClusterFirstWithHostNet
       serviceAccountName: bpfd-app-go-tc-counter
       tolerations:
         # these tolerations are to have the daemonset runnable on control plane nodes
@@ -71,12 +76,19 @@ spec:
         - key: node-role.kubernetes.io/master
           operator: Exists
           effect: NoSchedule
+      securityContext:
+        fsGroup: 2000
       containers:
         - name: go-tc-counter
-          image: quay.io/bpfd-userspace/go-tc-counter:latest
-          imagePullPolicy: IfNotPresent
           securityContext:
-            privileged: false
+            runAsUser: 2000
+            runAsGroup: 2000
+            seLinuxOptions:
+              type: bpf_t
+              user: system_u
+              role: object_r
+          image: quay.io/bpfd-userspace/go-tc-counter:latest
+          imagePullPolicy: Always
           env:
             - name: NODENAME
               valueFrom:
@@ -84,8 +96,7 @@ spec:
                   fieldPath: spec.nodeName
           volumeMounts:
             - name: go-tc-counter-maps
-              mountPath: /run/tc/maps
-              readOnly: true
+              mountPath: /tc/maps
       volumes:
         - name: go-tc-counter-maps
           csi:

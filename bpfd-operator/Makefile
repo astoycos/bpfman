@@ -49,8 +49,8 @@ endif
 # Image URL to use all building/pushing image targets
 BPFD_IMG ?= quay.io/bpfd/bpfd:latest
 BPFD_AGENT_IMG ?= quay.io/bpfd/bpfd-agent:latest
-BPFD_OPERATOR_IMG ?= quay.io/bpfd/bpfd-operator:latest
-BPFD_OPERATOR_BUNDLE_IMG ?= quay.io/bpfd/bpfd-operator-bundle:latest
+BPFD_OPERATOR_IMG ?= quay.io/astoycos/bpfd-operator:latest
+BPFD_OPERATOR_BUNDLE_IMG ?= quay.io/astoycos/bpfd-operator-bundle:latest
 KIND_CLUSTER_NAME ?= bpfd-deployment
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
