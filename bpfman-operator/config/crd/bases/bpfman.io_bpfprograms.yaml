@@ -7,12 +7,6 @@ metadata:
   creationTimestamp: null
   name: bpfprograms.bpfman.io
 spec:
-  group: bpfman.io
-  names:
-    kind: BpfProgram
-    listKind: BpfProgramList
-    plural: bpfprograms
-    singular: bpfprogram
   scope: Cluster
   versions:
   - name: v1alpha1
