@@ -22,7 +22,7 @@ use bpfman_api::{
     ProgramType, TcProceedOn,
 };
 use log::{debug, info, warn};
-use sled::Db;
+use sled::{Db, Tree};
 use tokio::{
     fs::{create_dir_all, read_dir, remove_dir_all},
     select,
@@ -54,17 +54,18 @@ pub(crate) struct BpfManager {
     maps: HashMap<u32, BpfMap>,
     commands: Receiver<Command>,
     image_manager: Sender<ImageManagerCommand>,
-    _database: Db,
+    database: Db,
 }
 
 pub(crate) struct ProgramMap {
-    programs: HashMap<u32, Program>,
+    //programs: HashMap<u32, Program>,
+    programs: Tree
 }
 
 impl ProgramMap {
-    fn new() -> Self {
+    fn new(root_db: &Db) -> Self {
         ProgramMap {
-            programs: HashMap::new(),
+            programs: root_db.open_tree("programs").expect("unable to open programs db tree"),
         }
     }
 
@@ -189,7 +190,7 @@ impl BpfManager {
             maps: HashMap::new(),
             commands,
             image_manager,
-            _database: database,
+            database: database,
         }
     }
 
