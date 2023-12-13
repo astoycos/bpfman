@@ -23,8 +23,9 @@ use bpfman_api::{
 };
 use chrono::{prelude::DateTime, Local};
 use log::info;
+use sha2::digest::const_oid::db;
 use sigstore::crypto::signing_key::kdf;
-use sled::Batch;
+use sled::{Batch, IVec};
 use tokio::sync::{mpsc::Sender, oneshot};
 
 use crate::{
@@ -63,7 +64,7 @@ pub(crate) enum Program {
     Tracepoint(TracepointProgram),
     Kprobe(KprobeProgram),
     Uprobe(UprobeProgram),
-    Unsupported(KernelProgramInfo),
+    Unsupported(ProgramData),
 }
 
 #[derive(Debug)]
@@ -224,7 +225,7 @@ impl std::fmt::Display for Direction {
 //         self.db_tree
 //             .get(format!("{}_kernel_info_program_type", self.id).as_str())
 //             .map(|n| {
-//                 u32::from_be_bytes(
+//                 u32::from_ne_bytes(
 //                     n.expect("no program type found")
 //                         .to_vec()
 //                         .try_into()
@@ -264,7 +265,7 @@ impl std::fmt::Display for Direction {
 //         self.db_tree
 //             .get(format!("{}_kernel_info_gpl_compatible", self.id).as_str())
 //             .map(|n| {
-//                 i8::from_be_bytes(
+//                 i8::from_ne_bytes(
 //                     n.expect("no gpl compatible found")
 //                         .to_vec()
 //                         .try_into()
@@ -279,7 +280,7 @@ impl std::fmt::Display for Direction {
 //     pub(crate) fn get_map_ids(&self) -> Result<Vec<u32>, BpfmanError> {
 //         self.db_tree
 //             .scan_prefix(format!("{}_kernel_info_map_ids_", self.id).as_str())
-//             .map(|n| n.map(|n| u32::from_be_bytes(n.1.to_vec().try_into().unwrap())))
+//             .map(|n| n.map(|n| u32::from_ne_bytes(n.1.to_vec().try_into().unwrap())))
 //             .map(|n| {
 //                 n.map_err(|e| {
 //                     BpfmanError::DatabaseError(format!("Failed to get map ids"), e.to_string())
@@ -292,7 +293,7 @@ impl std::fmt::Display for Direction {
 //         self.db_tree
 //             .get(format!("{}_kernel_info_btf_id", self.id).as_str())
 //             .map(|n| {
-//                 u32::from_be_bytes(
+//                 u32::from_ne_bytes(
 //                     n.expect("no btf id found")
 //                         .to_vec()
 //                         .try_into()
@@ -308,7 +309,7 @@ impl std::fmt::Display for Direction {
 //         self.db_tree
 //             .get(format!("{}_kernel_info_bytes_xlated", self.id).as_str())
 //             .map(|n| {
-//                 u32::from_be_bytes(
+//                 u32::from_ne_bytes(
 //                     n.expect("no bytes xlated found")
 //                         .to_vec()
 //                         .try_into()
@@ -324,7 +325,7 @@ impl std::fmt::Display for Direction {
 //         self.db_tree
 //             .get(format!("{}_kernel_info_jited", self.id).as_str())
 //             .map(|n| {
-//                 i8::from_be_bytes(
+//                 i8::from_ne_bytes(
 //                     n.expect("no jited found")
 //                         .to_vec()
 //                         .try_into()
@@ -340,7 +341,7 @@ impl std::fmt::Display for Direction {
 //         self.db_tree
 //             .get(format!("{}_kernel_info_bytes_jited", self.id).as_str())
 //             .map(|n| {
-//                 u32::from_be_bytes(
+//                 u32::from_ne_bytes(
 //                     n.expect("no bytes jited found")
 //                         .to_vec()
 //                         .try_into()
@@ -356,7 +357,7 @@ impl std::fmt::Display for Direction {
 //         self.db_tree
 //             .get(format!("{}_kernel_info_bytes_memlock", self.id).as_str())
 //             .map(|n| {
-//                 u32::from_be_bytes(
+//                 u32::from_ne_bytes(
 //                     n.expect("no bytes memlock found")
 //                         .to_vec()
 //                         .try_into()
@@ -372,7 +373,7 @@ impl std::fmt::Display for Direction {
 //         self.db_tree
 //             .get(format!("{}_kernel_info_verified_insns", self.id).as_str())
 //             .map(|n| {
-//                 u32::from_be_bytes(
+//                 u32::from_ne_bytes(
 //                     n.expect("no verified insns found")
 //                         .to_vec()
 //                         .try_into()
@@ -388,14 +389,14 @@ impl std::fmt::Display for Direction {
 //     pub(crate) fn load_kernel_info(db_tree: sled::Tree, prog: AyaProgInfo) -> Result<Self, BpfmanError> {
 //         let id: u32 = prog.id();
 
-//         db_tree.insert(format!("{id}_kernel_info_id").as_str(), &id.to_be_bytes());
+//         db_tree.insert(format!("{id}_kernel_info_id").as_str(), &id.to_ne_bytes());
 //         db_tree.insert(
 //             format!("{id}_kernel_info_name").as_str(),
 //             prog.name_as_str().unwrap(),
 //         );
 //         db_tree.insert(
 //             format!("{id}_kernel_info_program_type").as_str(),
-//             &prog.program_type().to_be_bytes(),
+//             &prog.program_type().to_ne_bytes(),
 //         );
 //         db_tree.insert(
 //             format!("{id}_kernel_info_loaded_at").as_str(),
@@ -410,14 +411,14 @@ impl std::fmt::Display for Direction {
 //         );
 //         db_tree.insert(
 //             format!("{id}_kernel_info_gpl_compatible").as_str(),
-//             &(prog.gpl_compatible() as i8).to_be_bytes(),
+//             &(prog.gpl_compatible() as i8).to_ne_bytes(),
 //         );
 
 //         let map_ids = prog
 //             .map_ids()
 //             .map_err(BpfmanError::BpfProgramError)?
 //             .iter()
-//             .map(|i| i.to_be_bytes())
+//             .map(|i| i.to_ne_bytes())
 //             .collect::<Vec<_>>();
 
 //         map_ids.iter().enumerate().for_each(|(i, v)| {
@@ -430,19 +431,19 @@ impl std::fmt::Display for Direction {
 //                 Some(n) => n.get(),
 //                 None => 0,
 //             }
-//             .to_be_bytes(),
+//             .to_ne_bytes(),
 //         );
 //         db_tree.insert(
 //             format!("{id}_kernel_info_bytes_xlated").as_str(),
-//             &prog.size_translated().to_be_bytes(),
+//             &prog.size_translated().to_ne_bytes(),
 //         );
 //         db_tree.insert(
 //             format!("{id}_kernel_info_jited").as_str(),
-//             &(prog.size_jitted() % 2).to_be_bytes(),
+//             &(prog.size_jitted() % 2).to_ne_bytes(),
 //         );
 //         db_tree.insert(
 //             format!("{id}_kernel_info_bytes_jited").as_str(),
-//             &prog.size_jitted().to_be_bytes(),
+//             &prog.size_jitted().to_ne_bytes(),
 //         );
 
 //         db_tree.insert(
@@ -450,11 +451,11 @@ impl std::fmt::Display for Direction {
 //             &prog
 //                 .memory_locked()
 //                 .map_err(BpfmanError::BpfProgramError)?
-//                 .to_be_bytes(),
+//                 .to_ne_bytes(),
 //         );
 //         db_tree.insert(
 //             format!("{id}_kernel_info_verified_insns").as_str(),
-//             &prog.verified_instruction_count().to_be_bytes(),
+//             &prog.verified_instruction_count().to_ne_bytes(),
 //         );
 
 //         Ok(Self { db_tree, id })
@@ -573,21 +574,19 @@ impl std::fmt::Display for Direction {
 /// by bpfman.
 #[derive(Debug, Clone)]
 pub(crate) struct ProgramData {
-    // known at load time, set by user
-    name: String,
-    location: Location,
-    metadata: HashMap<String, String>,
-    global_data: HashMap<String, Vec<u8>>,
-    map_owner_id: Option<u32>,
     db_tree: sled::Tree,
+    // populated after load, randomnly generated prior to load.
+    id: u32,
 
-    // populated after load
-    id: Option<u32>,
+    // known and needed pre load time, getters will have custom logic.
+    // name: String,
+    // location: Location,
+    // metadata: HashMap<String, String>,
+    // global_data: HashMap<String, Vec<u8>>,
+    // map_owner_id: Option<u32>,
 
-    // populated after load
-    // kernel_info: Option<KernelProgramInfo>,
-    // map_pin_path: Option<PathBuf>,
-    // maps_used_by: Option<Vec<u32>>,
+    // // populated after load
+    // id: Option<u32>,
 
     // program_bytes is used to temporarily cache the raw program data during
     // the loading process.  It MUST be cleared following a load so that there
@@ -596,7 +595,7 @@ pub(crate) struct ProgramData {
 }
 
 impl ProgramData {
-    pub(crate) fn new_pre_id(
+    pub(crate) fn new(
         location: Location,
         name: String,
         metadata: HashMap<String, String>,
@@ -612,9 +611,7 @@ impl ProgramData {
             map_owner_id,
             program_bytes: Vec::new(),
             db_tree,
-            id: None, // kernel_info: None,
-                      // map_pin_path: None,
-                      // maps_used_by: None,
+            id: None,
         }
     }
 
@@ -637,7 +634,7 @@ impl ProgramData {
     pub(crate) fn get_kernel_program_type(&self) -> Result<u32, BpfmanError> {
         self.db_tree
             .get(format!("{}_kernel_info_program_type", self.id_unsafe()).as_str())
-            .map(|n| bytes_to_u32(n.into()))
+            .map(|n| db_entry_to_u32(n))
             .map_err(|e| {
                 BpfmanError::DatabaseError(format!("Failed to get program type"), e.to_string())
             })
@@ -647,9 +644,7 @@ impl ProgramData {
         self.db_tree
             .get(format!("{}_kernel_info_loaded_at", self.id_unsafe()).as_str())
             .map(|n| {
-                std::str::from_utf8(&n.expect("no loaded at found"))
-                    .unwrap()
-                    .to_string()
+                db_entry_to_string(n)
             })
             .map_err(|e| {
                 BpfmanError::DatabaseError(format!("Failed to get loaded at"), e.to_string())
@@ -660,9 +655,7 @@ impl ProgramData {
         self.db_tree
             .get(format!("{}_kernel_info_tag", self.id_unsafe()).as_str())
             .map(|n| {
-                std::str::from_utf8(&n.expect("no tag found"))
-                    .unwrap()
-                    .to_string()
+                db_entry_to_string(n)
             })
             .map_err(|e| BpfmanError::DatabaseError(format!("Failed to get tag"), e.to_string()))
     }
@@ -671,15 +664,10 @@ impl ProgramData {
         self.db_tree
             .get(format!(
                 "{}_kernel_info_gpl_compatible",
-                self.id_unsafe().as_str()
+                self.id_unsafe()
             ))
             .map(|n| {
-                i8::from_be_bytes(
-                    n.expect("no gpl compatible found")
-                        .to_vec()
-                        .try_into()
-                        .unwrap(),
-                ) != 0
+                db_entry_to_bool(n)
             })
             .map_err(|e| {
                 BpfmanError::DatabaseError(format!("Failed to get gpl compatible"), e.to_string())
@@ -688,8 +676,8 @@ impl ProgramData {
 
     pub(crate) fn get_map_ids(&self) -> Result<Vec<u32>, BpfmanError> {
         self.db_tree
-            .scan_prefix(format!("{}_kernel_info_map_ids_", self.id_unsafe()).as_str())
-            .map(|n| n.map(|(_, v)| bytes_to_u32(v.into())))
+            .scan_prefix(format!("{}_kernel_info_map_ids_", self.id_unsafe()))
+            .map(|n| n.map(|(_, v)| db_entry_to_u32(Some(v))))
             .map(|n| {
                 n.map_err(|e| {
                     BpfmanError::DatabaseError(format!("Failed to get map ids"), e.to_string())
@@ -702,7 +690,7 @@ impl ProgramData {
         self.db_tree
             .get(format!("{}_kernel_info_btf_id", self.id_unsafe()).as_str())
             .map(|n| {
-                bytes_to_u32(n.into())
+                db_entry_to_u32(n)
             })
             .map_err(|e| BpfmanError::DatabaseError(format!("Failed to get btf id"), e.to_string()))
     }
@@ -711,7 +699,7 @@ impl ProgramData {
         self.db_tree
             .get(format!("{}_kernel_info_bytes_xlated", self.id_unsafe()).as_str())
             .map(|n| {
-                bytes_to_u32(n.into())
+                db_entry_to_u32(n)
             })
             .map_err(|e| {
                 BpfmanError::DatabaseError(format!("Failed to get bytes xlated"), e.to_string())
@@ -722,7 +710,7 @@ impl ProgramData {
         self.db_tree
             .get(format!("{}_kernel_info_jited", self.id_unsafe()).as_str())
             .map(|n| {
-                i8::from_be_bytes(n.expect("no jited found").to_vec().try_into().unwrap()) != 0
+                db_entry_to_bool(n)
             })
             .map_err(|e| BpfmanError::DatabaseError(format!("Failed to get jited"), e.to_string()))
     }
@@ -731,7 +719,7 @@ impl ProgramData {
         self.db_tree
             .get(format!("{}_kernel_info_bytes_jited", self.id_unsafe()).as_str())
             .map(|n| {
-                bytes_to_u32(n.into())
+                db_entry_to_u32(n)
             })
             .map_err(|e| {
                 BpfmanError::DatabaseError(format!("Failed to get bytes jited"), e.to_string())
@@ -742,7 +730,7 @@ impl ProgramData {
         self.db_tree
             .get(format!("{}_kernel_info_bytes_memlock", self.id_unsafe()).as_str())
             .map(|n| {
-                bytes_to_u32(n.into())
+                db_entry_to_u32(n)
             })
             .map_err(|e| {
                 BpfmanError::DatabaseError(format!("Failed to get bytes memlock"), e.to_string())
@@ -753,7 +741,7 @@ impl ProgramData {
         self.db_tree
             .get(format!("{}_kernel_info_verified_insns", self.id_unsafe()).as_str())
             .map(|n| {
-                bytes_to_u32(n.into())
+               db_entry_to_u32(n)
             })
             .map_err(|e| {
                 BpfmanError::DatabaseError(format!("Failed to get verified insns"), e.to_string())
@@ -765,99 +753,104 @@ impl ProgramData {
     // database.
     pub(crate) fn load_kernel_info(
         &self,
-        db_tree: sled::Tree,
         prog: AyaProgInfo,
     ) -> Result<(), BpfmanError> {
         let id: u32 = prog.id();
 
         // Load the cached pre_load bpfman_info into the database.
-        db_tree.insert(format!("{id}_name").as_str(), self.name.as_str());
+        self.db_tree.insert(format!("{id}_name").as_str(), self.name.as_str());
         self.location.flatten(id).iter().for_each(|(k, v)| {
-            db_tree.insert(k, v);
+            self.db_tree.insert(k, v);
         });
         self.metadata.iter().for_each(|(k, v)| {
-            db_tree
+            self.db_tree
                 .insert(format!("{id}_metadata_{k}").as_str(), v.as_str())
                 .expect("cannot flatten metadata");
         });
+        
         self.global_data.iter().for_each(|(k, v)| {
-            db_tree
+            self.db_tree
                 .insert(format!("{id}_global_data_{k}").as_str(), v.deref())
                 .expect("cannot flatten global data");
         });
-        db_tree.insert(
+
+        self.db_tree.insert(
             format!("{id}_map_owner_id").as_str(),
-            &self.map_owner_id.unwrap_or_default().to_be_bytes(),
+            &self.map_owner_id.unwrap_or_default().to_ne_bytes(),
         );
 
         // Load the kernel generated information into the database.
-        db_tree.insert(format!("{id}_kernel_info_id").as_str(), &id.to_be_bytes());
-        db_tree.insert(
+        self.db_tree.insert(format!("{id}_kernel_info_id").as_str(), &id.to_ne_bytes());
+        self.db_tree.insert(
             format!("{id}_kernel_info_name").as_str(),
             prog.name_as_str().unwrap(),
         );
-        db_tree.insert(
+        self.db_tree.insert(
             format!("{id}_kernel_info_program_type").as_str(),
-            &prog.program_type().to_be_bytes(),
+            &prog.program_type().to_ne_bytes(),
         );
-        db_tree.insert(
+        self.db_tree.insert(
             format!("{id}_kernel_info_loaded_at").as_str(),
             DateTime::<Local>::from(prog.loaded_at())
                 .format("%Y-%m-%dT%H:%M:%S%z")
                 .to_string()
                 .as_str(),
         );
-        db_tree.insert(
+        self.db_tree.insert(
             format!("{id}_kernel_info_tag").as_str(),
             format!("{:x}", prog.tag()).as_str(),
         );
-        db_tree.insert(
+        self.db_tree.insert(
             format!("{id}_kernel_info_gpl_compatible").as_str(),
-            &(prog.gpl_compatible() as i8).to_be_bytes(),
+            &(prog.gpl_compatible() as i8).to_ne_bytes(),
         );
 
         let map_ids = prog
             .map_ids()
             .map_err(BpfmanError::BpfProgramError)?
             .iter()
-            .map(|i| i.to_be_bytes())
+            .map(|i| i.to_ne_bytes())
             .collect::<Vec<_>>();
 
         map_ids.iter().enumerate().for_each(|(i, v)| {
-            db_tree.insert(format!("{id}_kernel_info_map_ids_{i}").as_str(), v);
+            self.db_tree.insert(format!("{id}_kernel_info_map_ids_{i}").as_str(), v);
         });
 
-        db_tree.insert(
+        self.db_tree.insert(
             format!("{id}_kernel_info_btf_id").as_str(),
             &match prog.btf_id() {
                 Some(n) => n.get(),
                 None => 0,
             }
-            .to_be_bytes(),
-        );
-        db_tree.insert(
-            format!("{id}_kernel_info_bytes_xlated").as_str(),
-            &prog.size_translated().to_be_bytes(),
-        );
-        db_tree.insert(
-            format!("{id}_kernel_info_jited").as_str(),
-            &(prog.size_jitted() % 2).to_be_bytes(),
-        );
-        db_tree.insert(
-            format!("{id}_kernel_info_bytes_jited").as_str(),
-            &prog.size_jitted().to_be_bytes(),
+            .to_ne_bytes(),
         );
 
-        db_tree.insert(
+        self.db_tree.insert(
+            format!("{id}_kernel_info_bytes_xlated").as_str(),
+            &prog.size_translated().to_ne_bytes(),
+        );
+
+        self.db_tree.insert(
+            format!("{id}_kernel_info_jited").as_str(),
+            &(prog.size_jitted() % 2).to_ne_bytes(),
+        );
+
+        self.db_tree.insert(
+            format!("{id}_kernel_info_bytes_jited").as_str(),
+            &prog.size_jitted().to_ne_bytes(),
+        );
+
+        self.db_tree.insert(
             format!("{id}_kernel_info_bytes_memlock").as_str(),
             &prog
                 .memory_locked()
                 .map_err(BpfmanError::BpfProgramError)?
-                .to_be_bytes(),
+                .to_ne_bytes(),
         );
-        db_tree.insert(
+        
+        self.db_tree.insert(
             format!("{id}_kernel_info_verified_insns").as_str(),
-            &prog.verified_instruction_count().to_be_bytes(),
+            &prog.verified_instruction_count().to_ne_bytes(),
         );
         self.id = Some(id);
 
@@ -875,9 +868,7 @@ impl ProgramData {
         self.db_tree
             .get(format!("{}_map_pin_path", self.id_unsafe()).as_str())
             .map(|n| {
-                std::str::from_utf8(&n.expect("no map pin path found"))
-                    .unwrap()
-                    .to_string()
+                db_entry_to_string(n)
             })
             .map_err(|e| {
                 BpfmanError::DatabaseError(format!("Failed to get map pin path"), e.to_string())
@@ -889,7 +880,7 @@ impl ProgramData {
         used_by.iter().enumerate().for_each(|(i, id)| {
             self.db_tree.insert(
                 format!("{}_maps_used_by_{}", self.id_unsafe(), i).as_str(),
-                &id.to_be_bytes(),
+                &id.to_ne_bytes(),
             );
         });
     }
@@ -897,7 +888,7 @@ impl ProgramData {
     pub(crate) fn get_maps_used_by(&self) -> Result<Vec<u32>, BpfmanError> {
         self.db_tree
             .scan_prefix(format!("{}_maps_used_by_", self.id_unsafe()).as_str())
-            .map(|n| n.map(|(_, v)| u32::from_be_bytes(v.to_vec().try_into().unwrap())))
+            .map(|n| n.map(|(_, v)| db_entry_to_u32(Some(v))))
             .map(|n| {
                 n.map_err(|e| {
                     BpfmanError::DatabaseError(format!("Failed to get maps used by"), e.to_string())
@@ -957,13 +948,13 @@ impl ProgramData {
     pub(crate) fn get_map_owner_id(&self) -> Result<u32, BpfmanError> {
         self.db_tree
             .get(format!("{}_map_owner_id", self.id_unsafe()).as_str())
-            .map(|n| u32::from_be_bytes(&n.expect("no map owner id found")))
+            .map(|n| db_entry_to_u32(n))
             .map_err(|e| {
                 BpfmanError::DatabaseError(format!("Failed to get map owner id"), e.to_string())
             })
     }
 
-    // TODO (astoycos)
+    // TODO (astoycos) remove this and stop using `ProgramData` as a caching mechanism
     pub(crate) fn program_bytes(&self) -> &[u8] {
         &self.program_bytes
     }
@@ -1012,62 +1003,61 @@ impl ProgramData {
         }
     }
 
-    // Flatten the ProgramData structure into a hashmap so that it can be
-    // inserted into the sled database. The key will be prefixed with the program's
-    // id and generally follow a "id_{field_name}" convention.
-    pub(crate) fn flatten(&self, id: u32) -> HashMap<&str, sled::IVec> {
-        let mut map: HashMap<&str, sled::IVec> = HashMap::new();
-        map.insert(format!("{id}_name").as_str(), self.name.as_str().into());
-        map.extend(self.location.flatten(id));
-        self.metadata.iter().for_each(|(k, v)| {
-            map.insert(format!("{id}_metadata_{k}").as_str(), v.as_str().into())
-                .expect("cannot flatten metadata");
-        });
-        self.global_data.iter().for_each(|(k, v)| {
-            map.insert(format!("{id}_global_data_{k}").as_str(), v.deref().into())
-                .expect("cannot flatten global data");
-        });
-        map.insert(
-            format!("{id}_map_owner_id").as_str(),
-            (&self.map_owner_id.unwrap_or_default().to_be_bytes()).into(),
-        );
+    // // Flatten the ProgramData structure into a hashmap so that it can be
+    // // inserted into the sled database. The key will be prefixed with the program's
+    // // id and generally follow a "id_{field_name}" convention.
+    // pub(crate) fn flatten(&self, id: u32) -> HashMap<&str, sled::IVec> {
+    //     let mut map: HashMap<&str, sled::IVec> = HashMap::new();
+    //     map.insert(format!("{id}_name").as_str(), self.name.as_str().into());
+    //     map.extend(self.location.flatten(id));
+    //     self.metadata.iter().for_each(|(k, v)| {
+    //         map.insert(format!("{id}_metadata_{k}").as_str(), v.as_str().into())
+    //             .expect("cannot flatten metadata");
+    //     });
+    //     self.global_data.iter().for_each(|(k, v)| {
+    //         map.insert(format!("{id}_global_data_{k}").as_str(), v.deref().into())
+    //             .expect("cannot flatten global data");
+    //     });
+    //     map.insert(
+    //         format!("{id}_map_owner_id").as_str(),
+    //         (&self.map_owner_id.unwrap_or_default().to_ne_bytes()).into(),
+    //     );
 
-        map.extend(
-            self.kernel_info
-                .expect("kernel info should be set after load")
-                .flatten(id),
-        );
+    //     map.extend(
+    //         self.kernel_info
+    //             .expect("kernel info should be set after load")
+    //             .flatten(id),
+    //     );
 
-        map.insert(
-            format!("{id}_map_pin_path").as_str(),
-            self.map_pin_path
-                .expect("map pin path should be set after load")
-                .as_os_str()
-                .to_str()
-                .unwrap()
-                .into(),
-        );
+    //     map.insert(
+    //         format!("{id}_map_pin_path").as_str(),
+    //         self.map_pin_path
+    //             .expect("map pin path should be set after load")
+    //             .as_os_str()
+    //             .to_str()
+    //             .unwrap()
+    //             .into(),
+    //     );
 
-        map.insert(
-            format!("{id}_maps_used_by").as_str(),
-            format!("{:?}", self.maps_used_by).as_str().into(),
-        );
+    //     map.insert(
+    //         format!("{id}_maps_used_by").as_str(),
+    //         format!("{:?}", self.maps_used_by).as_str().into(),
+    //     );
 
-        map
-    }
+    //     map
+    // }
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct XdpProgram {
     pub(crate) data: ProgramData,
-    // known at load time
     pub(crate) priority: i32,
     pub(crate) iface: String,
     pub(crate) proceed_on: XdpProceedOn,
     // populated after load
-    pub(crate) current_position: Option<usize>,
-    pub(crate) if_index: Option<u32>,
-    pub(crate) attached: bool,
+    // pub(crate) current_position: Option<usize>,
+    // pub(crate) if_index: Option<u32>,
+    // pub(crate) attached: bool,
 }
 
 impl XdpProgram {
@@ -1082,18 +1072,20 @@ impl XdpProgram {
             priority,
             iface,
             proceed_on,
-            current_position: None,
-            if_index: None,
-            attached: false,
+            // current_position: None,
+            // if_index: None,
+            // attached: false,
         }
     }
+
+
 
     pub(crate) fn flatten(&self, id: u32) -> HashMap<&str, sled::IVec> {
         let mut map: HashMap<&str, sled::IVec> = HashMap::new();
 
         map.insert(
             format!("{id}_xdp_priority").as_str(),
-            (&self.priority.to_be_bytes()).into(),
+            (&self.priority.to_ne_bytes()).into(),
         );
         map.insert(
             format!("{id}_xdp_iface").as_str(),
@@ -1105,15 +1097,15 @@ impl XdpProgram {
         );
         map.insert(
             format!("{id}_xdp_attached").as_str(),
-            (&(self.attached as i8).to_be_bytes()).into(),
+            (&(self.attached as i8).to_ne_bytes()).into(),
         );
         map.insert(
             format!("{id}_xdp_current_position").as_str(),
-            (&self.current_position.unwrap_or_default().to_be_bytes()).into(),
+            (&self.current_position.unwrap_or_default().to_ne_bytes()).into(),
         );
         map.insert(
             format!("{id}_xdp_if_index").as_str(),
-            (&self.if_index.unwrap_or_default().to_be_bytes()).into(),
+            (&self.if_index.unwrap_or_default().to_ne_bytes()).into(),
         );
 
         map
@@ -1154,12 +1146,14 @@ impl TcProgram {
         }
     }
 
+    load_program_info()
+
     pub(crate) fn flatten(&self, id: u32) -> HashMap<&str, sled::IVec> {
         let mut map: HashMap<&str, sled::IVec> = HashMap::new();
 
         map.insert(
             format!("{id}_tc_priority").as_str(),
-            (&self.priority.to_be_bytes()).into(),
+            (&self.priority.to_ne_bytes()).into(),
         );
         map.insert(
             format!("{id}_tc_iface").as_str(),
@@ -1171,15 +1165,15 @@ impl TcProgram {
         );
         map.insert(
             format!("{id}_tc_attached").as_str(),
-            (&(self.attached as i8).to_be_bytes()).into(),
+            (&(self.attached as i8).to_ne_bytes()).into(),
         );
         map.insert(
             format!("{id}_tc_current_position").as_str(),
-            (&self.current_position.unwrap_or_default().to_be_bytes()).into(),
+            (&self.current_position.unwrap_or_default().to_ne_bytes()).into(),
         );
         map.insert(
             format!("{id}_tc_if_index").as_str(),
-            (&self.if_index.unwrap_or_default().to_be_bytes()).into(),
+            (&self.if_index.unwrap_or_default().to_ne_bytes()).into(),
         );
         map.insert(
             format!("{id}_tc_direction").as_str(),
@@ -1247,11 +1241,11 @@ impl KprobeProgram {
         );
         map.insert(
             format!("{id}_kprobe_offset").as_str(),
-            (&self.offset.to_be_bytes()).into(),
+            (&self.offset.to_ne_bytes()).into(),
         );
         map.insert(
             format!("{id}_kprobe_retprobe").as_str(),
-            (&(self.retprobe as i8).to_be_bytes()).into(),
+            (&(self.retprobe as i8).to_ne_bytes()).into(),
         );
         map.insert(
             format!("{id}_kprobe_namespace").as_str(),
@@ -1302,11 +1296,11 @@ impl UprobeProgram {
         );
         map.insert(
             format!("{id}_uprobe_offset").as_str(),
-            (&self.offset.to_be_bytes()).into(),
+            (&self.offset.to_ne_bytes()).into(),
         );
         map.insert(
             format!("{id}_uprobe_retprobe").as_str(),
-            (&(self.retprobe as i8).to_be_bytes()).into(),
+            (&(self.retprobe as i8).to_ne_bytes()).into(),
         );
         map.insert(
             format!("{id}_uprobe_namespace").as_str(),
@@ -1314,7 +1308,7 @@ impl UprobeProgram {
         );
         map.insert(
             format!("{id}_uprobe_pid").as_str(),
-            (&self.pid.unwrap_or_default().to_be_bytes()).into(),
+            (&self.pid.unwrap_or_default().to_ne_bytes()).into(),
         );
         map.insert(
             format!("{id}_uprobe_target").as_str(),
@@ -1332,7 +1326,7 @@ impl Program {
             Program::Tracepoint(_) => ProgramType::Tracepoint,
             Program::Kprobe(_) => ProgramType::Probe,
             Program::Uprobe(_) => ProgramType::Probe,
-            Program::Unsupported(i) => i.program_type.try_into().unwrap(),
+            Program::Unsupported(i) => i.get_kernel_program_type().unwrap().try_into().unwrap(),
         }
     }
 
@@ -1400,17 +1394,17 @@ impl Program {
         }
     }
 
-    pub(crate) fn kernel_info(&self) -> Option<&KernelProgramInfo> {
-        match self {
-            Program::Xdp(p) => p.data.kernel_info.as_ref(),
-            Program::Tc(p) => p.data.kernel_info.as_ref(),
-            Program::Tracepoint(p) => p.data.kernel_info.as_ref(),
-            Program::Kprobe(p) => p.data.kernel_info.as_ref(),
-            Program::Uprobe(p) => p.data.kernel_info.as_ref(),
-            // KernelProgramInfo will never be nil for Unsupported programs
-            Program::Unsupported(p) => Some(p),
-        }
-    }
+    // pub(crate) fn kernel_info(&self) -> Option<&KernelProgramInfo> {
+    //     match self {
+    //         Program::Xdp(p) => p.data.kernel_info.as_ref(),
+    //         Program::Tc(p) => p.data.kernel_info.as_ref(),
+    //         Program::Tracepoint(p) => p.data.kernel_info.as_ref(),
+    //         Program::Kprobe(p) => p.data.kernel_info.as_ref(),
+    //         Program::Uprobe(p) => p.data.kernel_info.as_ref(),
+    //         // KernelProgramInfo will never be nil for Unsupported programs
+    //         Program::Unsupported(p) => Some(p),
+    //     }
+    // }
 
     // pub(crate) fn save(&self, id: u32) -> Result<(), anyhow::Error> {
     //     let path = format!("{RTDIR_PROGRAMS}/{id}");
@@ -1493,24 +1487,24 @@ impl Program {
         }
     }
 
-    pub(crate) fn flatten(&self, id: u32) -> Batch {
-        let map = match self {
-            Program::Xdp(p) => p.flatten(id),
-            Program::Tracepoint(p) => p.flatten(id),
-            Program::Tc(p) => p.flatten(id),
-            Program::Kprobe(p) => p.flatten(id),
-            Program::Uprobe(p) => p.flatten(id),
-            Program::Unsupported(k) => k.flatten(id),
-        };
+    // pub(crate) fn flatten(&self, id: u32) -> Batch {
+    //     let map = match self {
+    //         Program::Xdp(p) => p.flatten(id),
+    //         Program::Tracepoint(p) => p.flatten(id),
+    //         Program::Tc(p) => p.flatten(id),
+    //         Program::Kprobe(p) => p.flatten(id),
+    //         Program::Uprobe(p) => p.flatten(id),
+    //         Program::Unsupported(k) => k.flatten(id),
+    //     };
 
-        let mut batch = sled::Batch::default();
+    //     let mut batch = sled::Batch::default();
 
-        map.iter().for_each(|(k, v)| {
-            batch.insert(*k, *v);
-        });
+    //     map.iter().for_each(|(k, v)| {
+    //         batch.insert(*k, *v);
+    //     });
 
-        batch
-    }
+    //     batch
+    // }
 }
 
 // BpfMap represents a single map pin path used by a Program.  It has to be a
@@ -1522,6 +1516,14 @@ pub(crate) struct BpfMap {
     pub(crate) used_by: Vec<u32>,
 }
 
-pub(crate) fn bytes_to_u32(bytes: &[u8]) -> u32 {
-    u32::from_be_bytes(bytes.try_into().unwrap())
+pub(crate) fn db_entry_to_u32(entry: Option<IVec>) -> u32 {
+    u32::from_ne_bytes(entry.expect("db entry is none").deref().try_into().expect("unable to martial db entry to 32"))
+}
+
+pub(crate) fn db_entry_to_string(entry: Option<IVec>) -> String { 
+    std::str::from_utf8(&entry.expect("db entry is none")).expect("failed to convert db entry to string").to_string()
+}
+
+pub(crate) fn db_entry_to_bool(entry: Option<IVec>) -> bool {
+    i8::from_ne_bytes(entry.expect("db entry is none").deref().try_into().expect("unable to martial db entry to i8")) != 0
 }

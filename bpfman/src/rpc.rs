@@ -22,6 +22,7 @@ use crate::command::{
 #[derive(Debug)]
 pub struct BpfmanLoader {
     tx: Sender<Command>,
+    
 }
 
 impl BpfmanLoader {

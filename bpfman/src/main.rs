@@ -2,6 +2,9 @@
 // Copyright Authors of bpfman
 
 use clap::Parser;
+use sled::{Config, Db};
+use lazy_static::lazy_static;
+use bpfman_api::util::directories::STDIR_DB;
 
 mod bpf;
 mod cli;
@@ -17,6 +20,15 @@ mod storage;
 mod utils;
 
 const BPFMAN_ENV_LOG_LEVEL: &str = "RUST_LOG";
+
+lazy_static! {
+    pub static ref BPFMAN_DB: Db  = {
+        Config::default()
+        .path(STDIR_DB)
+        .open()
+        .expect("Unable to open database")
+    };
+}
 
 fn main() -> anyhow::Result<()> {
     let cli = cli::Cli::parse();
