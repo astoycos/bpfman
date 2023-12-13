@@ -49,4 +49,6 @@ pub enum BpfmanError {
     RpcSendError(#[from] anyhow::Error),
     #[error("Failed to pin map {0}")]
     UnableToPinMap(#[source] aya::pin::PinError),
+    #[error("{0}: {1}")]
+    DatabaseError(String, String),
 }

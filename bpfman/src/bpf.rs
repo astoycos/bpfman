@@ -58,23 +58,44 @@ pub(crate) struct BpfManager {
 }
 
 pub(crate) struct ProgramMap {
-    //programs: HashMap<u32, Program>,
-    programs: Tree
+    //program: HashMap<u32, Program>,
+    programs: Tree,
 }
 
 impl ProgramMap {
     fn new(root_db: &Db) -> Self {
         ProgramMap {
-            programs: root_db.open_tree("programs").expect("unable to open programs db tree"),
+            programs: root_db
+                .open_tree("programs")
+                .expect("unable to open programs db tree"),
         }
     }
 
-    fn insert(&mut self, id: u32, prog: Program) -> Option<Program> {
-        self.programs.insert(id, prog)
+    fn insert(&mut self, id: u32, prog: Program) -> Result<(), BpfmanError> {
+        self.programs.apply_batch(prog.flatten(id)).map_err(|e| {
+            BpfmanError::DatabaseError(
+                "unable to insert program into database".to_string(),
+                e.to_string(),
+            )
+        })
     }
 
-    fn remove(&mut self, id: &u32) -> Option<Program> {
-        self.programs.remove(id)
+    fn remove(&mut self, id: &u32) -> Result<sled::IVec, BpfmanError> {
+        self.programs
+            .scan_prefix(id.to_string())
+            .try_for_each(|(k, _)| {
+                self.programs
+                    .remove(k)
+                    .map(|v| {
+                        v.expect("program should exist in database");
+                    })
+                    .map_err(|e| {
+                        BpfmanError::DatabaseError(
+                            "unable to remove program from database".to_string(),
+                            e.to_string(),
+                        )
+                    })
+            })
     }
 
     fn get_mut(&mut self, id: &u32) -> Option<&mut Program> {
@@ -186,11 +207,13 @@ impl BpfManager {
         Self {
             config,
             dispatchers: DispatcherMap::new(),
-            programs: ProgramMap::new(),
+            programs: database
+                .open_tree("programs")
+                .expect("failed to open programs db tree"),
             maps: HashMap::new(),
             commands,
             image_manager,
-            database: database,
+            database,
         }
     }
 
