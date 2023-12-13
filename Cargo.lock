@@ -374,6 +374,7 @@ dependencies = [
  "flate2",
  "futures",
  "hex",
+ "lazy_static",
  "log",
  "netlink-packet-route",
  "nix 0.27.1",
