@@ -75,17 +75,150 @@ type ReconcilerCommon struct {
 // program bpfman from user intent in K8s CRDs.
 type bpfmanReconciler interface {
 	getRecCommon() *ReconcilerCommon
-	reconcileBpfmanProgram(context.Context,
-		map[string]*gobpfman.ListResponse_ListResult,
-		*bpfmaniov1alpha1.BytecodeSelector,
-		*bpfmaniov1alpha1.BpfProgram,
-		bool,
-		bool,
-		*MapOwnerParamStatus) (bpfmaniov1alpha1.BpfProgramConditionType, error)
+	// reconcileBpfmanProgram(context.Context,
+	// 	map[string]*gobpfman.ListResponse_ListResult,
+	// 	*bpfmaniov1alpha1.BytecodeSelector,
+	// 	*bpfmaniov1alpha1.BpfProgram,
+	// 	bool,
+	// 	bool,
+	// 	*MapOwnerParamStatus) (bpfmaniov1alpha1.BpfProgramConditionType, error)
 	getFinalizer() string
 	getRecType() string
 	expectedBpfPrograms(ctx context.Context) (*bpfmaniov1alpha1.BpfProgramList, error)
+	getLoadRequest() (*gobpfman.LoadRequest, bpfmaniov1alpha1.BpfProgramConditionType, error)
 }
+
+// reconcileBpfmanPrograms ONLY reconciles the bpfman state for a single BpfProgram.
+// It does not interact with the k8s API in any way.
+func (r *bpfmanReconciler) reconcileBpfmanProgram(ctx context.Context,
+	existingBpfPrograms map[string]*gobpfman.ListResponse_ListResult,
+	bytecodeSelector *bpfmaniov1alpha1.BytecodeSelector,
+	bpfProgram *bpfmaniov1alpha1.BpfProgram,
+	isNodeSelected bool,
+	isBeingDeleted bool,
+	mapOwnerStatus *MapOwnerParamStatus) (bpfmaniov1alpha1.BpfProgramConditionType, error) {
+
+	r.Logger.V(1).Info("Existing bpfProgram", "UUID", bpfProgram.UID, "Name", bpfProgram.Name, "CurrentXdpProgram", r.currentXdpProgram.Name)
+	iface := bpfProgram.Annotations[internal.XdpProgramInterface]
+
+	var err error
+	uuid := string(bpfProgram.UID)
+
+	getLoadRequest := func() (*gobpfman.LoadRequest, bpfmaniov1alpha1.BpfProgramConditionType, error) {
+		bytecode, err := bpfmanagentinternal.GetBytecode(r.Client, bytecodeSelector)
+		if err != nil {
+			return nil, bpfmaniov1alpha1.BpfProgCondBytecodeSelectorError, fmt.Errorf("failed to process bytecode selector: %v", err)
+		}
+		loadRequest := r.buildXdpLoadRequest(bytecode, uuid, iface, mapOwnerStatus.mapOwnerId)
+		return loadRequest, bpfmaniov1alpha1.BpfProgCondNone, nil
+	}
+
+	existingProgram, doesProgramExist := existingBpfPrograms[uuid]
+	if !doesProgramExist {
+		r.Logger.V(1).Info("XdpProgram doesn't exist on node for iface", "interface", iface)
+
+		// If XdpProgram is being deleted just break out and remove finalizer
+		if isBeingDeleted {
+			return bpfmaniov1alpha1.BpfProgCondUnloaded, nil
+		}
+
+		// Make sure if we're not selected just exit
+		if !isNodeSelected {
+			return bpfmaniov1alpha1.BpfProgCondNotSelected, nil
+		}
+
+		// Make sure if the Map Owner is set but not found then just exit
+		if mapOwnerStatus.isSet && !mapOwnerStatus.isFound {
+			return bpfmaniov1alpha1.BpfProgCondMapOwnerNotFound, nil
+		}
+
+		// Make sure if the Map Owner is set but not loaded then just exit
+		if mapOwnerStatus.isSet && !mapOwnerStatus.isLoaded {
+			return bpfmaniov1alpha1.BpfProgCondMapOwnerNotLoaded, nil
+		}
+
+		// otherwise load it
+		loadRequest, condition, err := getLoadRequest()
+		if err != nil {
+			return condition, err
+		}
+
+		r.progId, err = bpfmanagentinternal.LoadBpfmanProgram(ctx, r.BpfmanClient, loadRequest)
+		if err != nil {
+			r.Logger.Error(err, "Failed to load XdpProgram")
+			return bpfmaniov1alpha1.BpfProgCondNotLoaded, nil
+		}
+
+		r.Logger.Info("bpfman called to load XdpProgram on Node", "Name", bpfProgram.Name, "UUID", uuid)
+		return bpfmaniov1alpha1.BpfProgCondLoaded, nil
+	}
+
+	// prog ID should already have been set
+	id, err := bpfmanagentinternal.GetID(bpfProgram)
+	if err != nil {
+		r.Logger.Error(err, "Failed to get program ID")
+		return bpfmaniov1alpha1.BpfProgCondNotLoaded, nil
+	}
+
+	// BpfProgram exists but either XdpProgram is being deleted, node is no
+	// longer selected, or map is not available....unload program
+	if isBeingDeleted || !isNodeSelected ||
+		(mapOwnerStatus.isSet && (!mapOwnerStatus.isFound || !mapOwnerStatus.isLoaded)) {
+		r.Logger.V(1).Info("XdpProgram exists on Node but is scheduled for deletion, not selected, or map not available",
+			"isDeleted", isBeingDeleted, "isSelected", isNodeSelected, "mapIsSet", mapOwnerStatus.isSet,
+			"mapIsFound", mapOwnerStatus.isFound, "mapIsLoaded", mapOwnerStatus.isLoaded)
+
+		if err := bpfmanagentinternal.UnloadBpfmanProgram(ctx, r.BpfmanClient, *id); err != nil {
+			r.Logger.Error(err, "Failed to unload XdpProgram")
+			return bpfmaniov1alpha1.BpfProgCondNotUnloaded, nil
+		}
+
+		r.Logger.Info("bpfman called to unload XdpProgram on Node", "Name", bpfProgram.Name, "UUID", id)
+
+		if isBeingDeleted {
+			return bpfmaniov1alpha1.BpfProgCondUnloaded, nil
+		}
+
+		if !isNodeSelected {
+			return bpfmaniov1alpha1.BpfProgCondNotSelected, nil
+		}
+
+		if mapOwnerStatus.isSet && !mapOwnerStatus.isFound {
+			return bpfmaniov1alpha1.BpfProgCondMapOwnerNotFound, nil
+		}
+
+		if mapOwnerStatus.isSet && !mapOwnerStatus.isLoaded {
+			return bpfmaniov1alpha1.BpfProgCondMapOwnerNotLoaded, nil
+		}
+	}
+
+	// BpfProgram exists but is not correct state, unload and recreate
+	loadRequest, condition, err := getLoadRequest()
+	if err != nil {
+		return condition, err
+	}
+
+	isSame, reasons := bpfmanagentinternal.DoesProgExist(existingProgram, loadRequest)
+	if !isSame {
+		r.Logger.V(1).Info("XdpProgram is in wrong state, unloading and reloading", "Reason", reasons)
+
+		if err := bpfmanagentinternal.UnloadBpfmanProgram(ctx, r.BpfmanClient, *id); err != nil {
+			r.Logger.Error(err, "Failed to unload XdpProgram")
+			return bpfmaniov1alpha1.BpfProgCondNotUnloaded, nil
+		}
+
+		r.progId, err = bpfmanagentinternal.LoadBpfmanProgram(ctx, r.BpfmanClient, loadRequest)
+		if err != nil {
+			r.Logger.Error(err, "Failed to load XdpProgram")
+			return bpfmaniov1alpha1.BpfProgCondNotLoaded, nil
+		}
+
+		r.Logger.Info("bpfman called to reload XdpProgram on Node", "Name", bpfProgram.Name, "UUID", id)
+	} else {
+		// Program exists and bpfProgram K8s Object is up to date
+		r.Logger.V(1).Info("Ignoring Object Change nothing to do in bpfman")
+		r.progId = id
+	}
 
 // Only return node updates for our node (all events)
 func nodePredicate(nodeName string) predicate.Funcs {
