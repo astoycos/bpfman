@@ -36,7 +36,7 @@ fn get_db_config() -> SledConfig {
 
 fn init_database(sled_config: SledConfig) -> anyhow::Result<Db> {
     let config = open_config_file();
-    for _n in 1..config.database.as_ref().map_or(4, |d| d.max_retries) {
+    for _ in 1..config.database.as_ref().map_or(4, |d| d.max_retries) {
         if let Ok(db) = sled_config.open() {
             return Ok(db);
         } else {
@@ -56,6 +56,5 @@ lazy_static! {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = cli::args::Cli::parse();
-    let config = open_config_file();
-    cli.command.execute(config).await
+    cli.command.execute().await
 }
