@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of bpfman
 
-use std::{path::PathBuf, str::FromStr};
+use std::{boxed::Box, path::PathBuf, str::FromStr};
 
 use anyhow::{anyhow, bail};
+
 use log::{debug, info, warn};
 use sigstore::{
     cosign::{
@@ -12,12 +13,11 @@ use sigstore::{
     },
     errors::SigstoreError::RegistryPullManifestError,
     registry::{Auth, ClientConfig, ClientProtocol, OciReference},
-    tuf::SigstoreRepository,
 };
-use tokio::task::spawn_blocking;
+//use tokio::task::spawn_blocking;
 
 pub struct CosignVerifier {
-    pub client: sigstore::cosign::Client,
+    pub client: sigstore::cosign::Client<'static>,
     pub allow_unsigned: bool,
 }
 
@@ -32,27 +32,21 @@ fn get_tuf_path() -> Option<PathBuf> {
 }
 
 impl CosignVerifier {
-    pub(crate) async fn new(allow_unsigned: bool) -> Result<Self, anyhow::Error> {
-        // We must use spawn_blocking here.
-        // See: https://docs.rs/sigstore/0.7.2/sigstore/oauth/openidflow/index.html
-        let repo: sigstore::errors::Result<SigstoreRepository> = spawn_blocking(|| {
-            info!("Starting Cosign Verifier, downloading data from Sigstore TUF repository");
-            sigstore::tuf::SigstoreRepository::fetch(get_tuf_path().as_deref())
-        })
-        .await
-        .map_err(|e| anyhow!("Error spawning blocking task inside of tokio: {}", e))?;
-
-        let repo: SigstoreRepository = repo?;
+    pub(crate) fn new(allow_unsigned: bool) -> Result<Self, anyhow::Error> {
+        info!("Starting Cosign Verifier, downloading data from Sigstore TUF repository");
 
         let oci_config = ClientConfig {
             protocol: ClientProtocol::Https,
             ..Default::default()
         };
 
+        // The tuf repo is a static ref which needs to live for the rest of the program's
+        // lifecycle so we can leak it here.
+        let repo: &dyn sigstore::tuf::Repository = Box::leak(fetch_sigstore_tuf_data()?);
+
         let cosign_client = ClientBuilder::default()
             .with_oci_client_config(oci_config)
-            .with_rekor_pub_key(repo.rekor_pub_key())
-            .with_fulcio_certs(repo.fulcio_certs())
+            .with_trust_repository(repo)?
             .enable_registry_caching()
             .build()?;
 
@@ -63,13 +57,13 @@ impl CosignVerifier {
     }
 
     pub(crate) async fn verify(
-        &mut self,
-        image: &str,
-        username: Option<&str>,
-        password: Option<&str>,
+        mut self,
+        image: String,
+        username: Option<String>,
+        password: Option<String>,
     ) -> Result<(), anyhow::Error> {
         debug!("CosignVerifier::verify()");
-        let image = OciReference::from_str(image)?;
+        let image = OciReference::from_str(&image)?;
         let auth = if let (Some(username), Some(password)) = (username, password) {
             Auth::Basic(username.to_string(), password.to_string())
         } else {
@@ -111,4 +105,13 @@ impl CosignVerifier {
             },
         }
     }
+}
+
+fn fetch_sigstore_tuf_data() -> anyhow::Result<Box<dyn sigstore::tuf::Repository>> {
+    let tuf = sigstore::tuf::SigstoreRepository::new(get_tuf_path().as_deref())
+        .map_err(|e| anyhow!("Error spawning blocking task inside of tokio: {}", e))?;
+
+    Ok(Box::new(tuf.prefetch().map_err(|e| {
+        anyhow!("Error spawning blocking task inside of tokio: {}", e)
+    })?))
 }

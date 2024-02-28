@@ -5,7 +5,7 @@ use std::io::{copy, Read};
 
 use bpfman_api::ImagePullPolicy;
 use flate2::read::GzDecoder;
-use log::{debug, info, trace};
+use log::{debug, trace};
 use oci_distribution::{
     client::{ClientConfig, ClientProtocol},
     manifest,
@@ -17,15 +17,15 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use tar::Archive;
-use tokio::{
-    select,
-    sync::{
-        broadcast,
-        mpsc::{self, Receiver},
-        oneshot,
-    },
-};
 
+// use tokio::{
+//     //select,
+//     sync::{
+//         broadcast,
+//         mpsc::{self, Receiver},
+//         oneshot,
+//     },
+// };
 use crate::{
     oci_utils::{cosign::CosignVerifier, ImageError},
     ROOT_DB,
@@ -101,78 +101,44 @@ impl From<bpfman_api::v1::BytecodeImage> for BytecodeImage {
     }
 }
 
-pub(crate) struct ImageManager {
-    client: Client,
-    cosign_verifier: CosignVerifier,
-    rx: Receiver<Command>,
-}
-
-/// Provided by the requester and used by the manager task to send
-/// the command response back to the requester.
-type Responder<T> = oneshot::Sender<T>;
-
-#[derive(Debug)]
-pub(crate) enum Command {
-    Pull {
-        image: String,
-        pull_policy: ImagePullPolicy,
-        username: Option<String>,
-        password: Option<String>,
-        resp: Responder<Result<(String, String), ImageError>>,
-    },
-    GetBytecode {
-        path: String,
-        resp: Responder<Result<Vec<u8>, ImageError>>,
-    },
+pub struct ImageManager {
+    allow_unsigned: bool,
 }
 
 impl ImageManager {
-    pub(crate) async fn new(
-        allow_unsigned: bool,
-        rx: mpsc::Receiver<Command>,
-    ) -> Result<Self, anyhow::Error> {
-        let cosign_verifier = CosignVerifier::new(allow_unsigned).await?;
-        let config = ClientConfig {
-            protocol: ClientProtocol::Https,
-            ..Default::default()
-        };
-        let client = Client::new(config);
-        Ok(Self {
-            cosign_verifier,
-            client,
-            rx,
-        })
+    pub(crate) fn new(allow_unsigned: bool) -> Result<Self, anyhow::Error> {
+        Ok(Self { allow_unsigned })
     }
 
-    pub(crate) async fn run(&mut self, mut shutdown_rx: broadcast::Receiver<()>) {
-        loop {
-            // Start receiving messages
-            select! {
-                biased;
-                _ = shutdown_rx.recv() => {
-                    info!("image_manager: Signal received to stop command processing");
-                    ROOT_DB.flush().expect("Unable to flush database to disk before shutting down ImageManager");
-                    break;
-                }
-                Some(cmd) = self.rx.recv() => {
-                    match cmd {
-                        Command::Pull { image, pull_policy, username, password, resp } => {
-                            let result = self.get_image(&image, pull_policy, username, password).await;
-                            let _ = resp.send(result);
-                        },
-                        Command::GetBytecode { path, resp } => {
-                            let result = self.get_bytecode_from_image_store(path).await;
-                            let _ = resp.send(result);
-                        }
-                    }
-                }
-            }
-        }
-        info!("image_manager: Stopped processing commands");
-    }
+    // pub(crate) async fn run(&mut self, mut shutdown_rx: broadcast::Receiver<()>) {
+    //     loop {
+    //         // Start receiving messages
+    //         select! {
+    //             biased;
+    //             _ = shutdown_rx.recv() => {
+    //                 info!("image_manager: Signal received to stop command processing");
+    //                 ROOT_DB.flush().expect("Unable to flush database to disk before shutting down ImageManager");
+    //                 break;
+    //             }
+    //             Some(cmd) = self.rx.recv() => {
+    //                 match cmd {
+    //                     Command::Pull { image, pull_policy, username, password, resp } => {
+    //                         let result = self.get_image(&image, pull_policy, username, password).await;
+    //                         let _ = resp.send(result);
+    //                     },
+    //                     Command::GetBytecode { path, resp } => {
+    //                         let result = self.get_bytecode_from_image_store(path).await;
+    //                         let _ = resp.send(result);
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     info!("image_manager: Stopped processing commands");
+    // }
 
-    pub(crate) async fn get_image(
-        &mut self,
+    pub(crate) fn get_image(
+        &self,
         image_url: &str,
         pull_policy: ImagePullPolicy,
         username: Option<String>,
@@ -182,10 +148,30 @@ impl ImageManager {
         // crate. It currently contains many defaults more of which can be seen
         // here: https://github.com/krustlet/oci-distribution/blob/main/src/reference.rs#L58
         let image: Reference = image_url.parse().map_err(ImageError::InvalidImageUrl)?;
+        let verifier = CosignVerifier::new(self.allow_unsigned)?;
 
-        self.cosign_verifier
-            .verify(image_url, username.as_deref(), password.as_deref())
-            .await?;
+        futures::executor::block_on(async {
+            let username_moved = username.clone().map(|s| s.to_string());
+            let password_moved = password.clone().map(|s| s.to_string());
+            let image_url_moved = image_url.to_owned();
+
+            // A new tokio runtime must be created here when calling async tokio
+            // library functions from a non-async wrapper, since all tokio
+            // based invocations must be made from within the context of a
+            // tokio 1.x runtime.
+            // Ultimately all library functions should also provide non-async
+            // methods.
+            tokio::runtime::Runtime::new()
+                .unwrap()
+                .spawn(async move {
+                    verifier
+                        .verify(image_url_moved, username_moved, password_moved)
+                        .await
+                        .unwrap()
+                })
+                .await
+        })
+        .unwrap();
 
         let image_content_key = get_image_content_key(&image);
 
@@ -197,15 +183,13 @@ impl ImageManager {
 
         let image_meta = match pull_policy {
             ImagePullPolicy::Always => {
-                self.pull_image(image, &image_content_key, username, password)
-                    .await?
+                self.pull_image(image, &image_content_key, username, password)?
             }
             ImagePullPolicy::IfNotPresent => {
                 if exists {
                     self.load_image_meta(&image_content_key)?
                 } else {
-                    self.pull_image(image, &image_content_key, username, password)
-                        .await?
+                    self.pull_image(image, &image_content_key, username, password)?
                 }
             }
             ImagePullPolicy::Never => {
@@ -232,8 +216,8 @@ impl ImageManager {
         }
     }
 
-    pub async fn pull_image(
-        &mut self,
+    pub fn pull_image(
+        &self,
         image: Reference,
         base_key: &str,
         username: Option<String>,
@@ -248,11 +232,34 @@ impl ImageManager {
 
         let auth = self.get_auth_for_registry(image.registry(), username, password);
 
-        let (image_manifest, _, config_contents) = self
-            .client
-            .pull_manifest_and_config(&image.clone(), &auth)
-            .await
-            .map_err(ImageError::ImageManifestPullFailure)?;
+        let (image_manifest, _, config_contents) = futures::executor::block_on(async {
+            let mut oci_client = Client::new(ClientConfig {
+                protocol: ClientProtocol::Https,
+                ..Default::default()
+            });
+            let image_moved = image.clone();
+            let auth_moved = auth.clone();
+            // A new tokio runtime must be created here when calling async tokio
+            // library functions from a non-async wrapper, since all tokio
+            // based invocations must be made from within the context of a
+            // tokio 1.x runtime.
+            // Ultimately all library functions should also provide non-async
+            // methods.
+            tokio::runtime::Runtime::new()
+                .unwrap()
+                .spawn(async move {
+                    oci_client
+                        .pull_manifest_and_config(&image_moved, &auth_moved)
+                        .await
+                })
+                .await
+                .unwrap()
+                .map_err(ImageError::ImageManifestPullFailure)
+        })?;
+
+        // let (image_manifest, _, config_contents) =
+        //     futures::executor::block_on(oci_client.pull_manifest_and_config(&image.clone(), &auth))
+        //         .map_err(ImageError::ImageManifestPullFailure)?;
 
         trace!("Raw container image manifest {}", image_manifest);
 
@@ -304,23 +311,40 @@ impl ImageManager {
             ImageError::DatabaseError("failed to flush db".to_string(), e.to_string())
         })?;
 
-        let image_content = self
-            .client
-            .pull(
-                &image,
-                &auth,
-                vec![
-                    manifest::IMAGE_LAYER_GZIP_MEDIA_TYPE,
-                    manifest::IMAGE_DOCKER_LAYER_GZIP_MEDIA_TYPE,
-                ],
-            )
-            .await
-            .map_err(ImageError::BytecodeImagePullFailure)?
-            .layers
-            .into_iter()
-            .next()
-            .map(|layer| layer.data)
-            .ok_or(ImageError::BytecodeImageExtractFailure)?;
+        let image_content = futures::executor::block_on(async {
+            let mut oci_client = Client::new(ClientConfig {
+                protocol: ClientProtocol::Https,
+                ..Default::default()
+            });
+            // A new tokio runtime must be created here when calling async tokio
+            // library functions from a non-async wrapper, since all tokio
+            // based invocations must be made from within the context of a
+            // tokio 1.x runtime.
+            // Ultimately all library functions should also provide non-async
+            // methods.
+            tokio::runtime::Runtime::new()
+                .unwrap()
+                .spawn(async move {
+                    oci_client
+                        .pull(
+                            &image,
+                            &auth,
+                            vec![
+                                manifest::IMAGE_LAYER_GZIP_MEDIA_TYPE,
+                                manifest::IMAGE_DOCKER_LAYER_GZIP_MEDIA_TYPE,
+                            ],
+                        )
+                        .await
+                        .map_err(ImageError::BytecodeImagePullFailure)?
+                        .layers
+                        .into_iter()
+                        .next()
+                        .map(|layer| layer.data)
+                        .ok_or(ImageError::BytecodeImageExtractFailure)
+                })
+                .await
+                .unwrap()
+        })?;
 
         ROOT_DB.insert(bytecode_path, image_content).map_err(|e| {
             ImageError::DatabaseError("failed to write to db".to_string(), e.to_string())
@@ -332,7 +356,7 @@ impl ImageManager {
         Ok(image_labels)
     }
 
-    pub(crate) async fn get_bytecode_from_image_store(
+    pub(crate) fn get_bytecode_from_image_store(
         &self,
         base_key: String,
     ) -> Result<Vec<u8>, ImageError> {
@@ -479,8 +503,7 @@ mod tests {
 
     #[tokio::test]
     async fn image_pull_and_bytecode_verify() {
-        let (_tx, rx) = mpsc::channel(32);
-        let mut mgr = ImageManager::new(true, rx).await.unwrap();
+        let mut mgr = ImageManager::new(true).unwrap();
 
         let (image_content_key, _) = mgr
             .get_image(
@@ -489,7 +512,6 @@ mod tests {
                 None,
                 None,
             )
-            .await
             .expect("failed to pull bytecode");
 
         // Assert that an manifest, config and bytecode key were formed for image.
@@ -497,7 +519,6 @@ mod tests {
 
         let program_bytes = mgr
             .get_bytecode_from_image_store(image_content_key)
-            .await
             .expect("failed to get bytecode from image store");
 
         assert!(!program_bytes.is_empty())
@@ -505,17 +526,14 @@ mod tests {
 
     #[tokio::test]
     async fn image_pull_policy_never_failure() {
-        let (_tx, rx) = mpsc::channel(32);
-        let mut mgr = ImageManager::new(true, rx).await.unwrap();
+        let mut mgr = ImageManager::new(true).unwrap();
 
-        let result = mgr
-            .get_image(
-                "quay.io/bpfman-bytecode/xdp_pass:latest",
-                ImagePullPolicy::Never,
-                None,
-                None,
-            )
-            .await;
+        let result = mgr.get_image(
+            "quay.io/bpfman-bytecode/xdp_pass:latest",
+            ImagePullPolicy::Never,
+            None,
+            None,
+        );
 
         assert_matches!(result, Err(ImageError::ByteCodeImageNotfound(_)));
     }
@@ -523,8 +541,7 @@ mod tests {
     #[tokio::test]
     #[should_panic]
     async fn private_image_pull_failure() {
-        let (_tx, rx) = mpsc::channel(32);
-        let mut mgr = ImageManager::new(true, rx).await.unwrap();
+        let mut mgr = ImageManager::new(true).unwrap();
 
         mgr.get_image(
             "quay.io/bpfman-bytecode/xdp_pass_private:latest",
@@ -532,7 +549,6 @@ mod tests {
             None,
             None,
         )
-        .await
         .expect("failed to pull bytecode");
     }
 
@@ -540,8 +556,7 @@ mod tests {
     async fn private_image_pull_and_bytecode_verify() {
         env_logger::init();
 
-        let (_tx, rx) = mpsc::channel(32);
-        let mut mgr = ImageManager::new(true, rx).await.unwrap();
+        let mut mgr = ImageManager::new(true).unwrap();
 
         let (image_content_key, _) = mgr
             .get_image(
@@ -550,7 +565,6 @@ mod tests {
                 Some("bpfman-bytecode+bpfmancreds".to_owned()),
                 Some("D49CKWI1MMOFGRCAT8SHW5A56FSVP30TGYX54BBWKY2J129XRI6Q5TVH2ZZGTJ1M".to_owned()),
             )
-            .await
             .expect("failed to pull bytecode");
 
         // Assert that an manifest, config and bytecode key were formed for image.
@@ -558,7 +572,6 @@ mod tests {
 
         let program_bytes = mgr
             .get_bytecode_from_image_store(image_content_key)
-            .await
             .expect("failed to get bytecode from image store");
 
         assert!(!program_bytes.is_empty())
@@ -566,17 +579,14 @@ mod tests {
 
     #[tokio::test]
     async fn image_pull_failure() {
-        let (_tx, rx) = mpsc::channel(32);
-        let mut mgr = ImageManager::new(true, rx).await.unwrap();
+        let mut mgr = ImageManager::new(true).unwrap();
 
-        let result = mgr
-            .get_image(
-                "quay.io/bpfman-bytecode/xdp_pass:latest",
-                ImagePullPolicy::Never,
-                None,
-                None,
-            )
-            .await;
+        let result = mgr.get_image(
+            "quay.io/bpfman-bytecode/xdp_pass:latest",
+            ImagePullPolicy::Never,
+            None,
+            None,
+        );
 
         assert_matches!(result, Err(ImageError::ByteCodeImageNotfound(_)));
     }

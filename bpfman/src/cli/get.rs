@@ -11,10 +11,7 @@ use crate::{
     errors::BpfmanError,
 };
 
-pub(crate) async fn execute_get(
-    bpf_manager: &mut BpfManager,
-    args: &GetArgs,
-) -> Result<(), BpfmanError> {
+pub(crate) fn execute_get(bpf_manager: &mut BpfManager, args: &GetArgs) -> Result<(), BpfmanError> {
     match bpf_manager.get_program(args.id) {
         Ok(program) => {
             let info: Option<ProgramInfo> = if let Program::Unsupported(_) = program {

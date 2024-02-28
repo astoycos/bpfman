@@ -10,10 +10,7 @@ use crate::{
     command::{ListFilter, Program},
 };
 
-pub(crate) async fn execute_list(
-    bpf_manager: &mut BpfManager,
-    args: &ListArgs,
-) -> anyhow::Result<()> {
+pub(crate) fn execute_list(bpf_manager: &mut BpfManager, args: &ListArgs) -> anyhow::Result<()> {
     let prog_type_filter = args.program_type.map(|p| p as u32);
 
     let filter = ListFilter::new(

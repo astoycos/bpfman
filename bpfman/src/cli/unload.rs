@@ -3,10 +3,10 @@
 
 use crate::{bpf::BpfManager, cli::args::UnloadArgs};
 
-pub(crate) async fn execute_unload(
+pub(crate) fn execute_unload(
     bpf_manager: &mut BpfManager,
     args: &UnloadArgs,
 ) -> Result<(), anyhow::Error> {
-    bpf_manager.remove_program(args.id).await?;
+    bpf_manager.remove_program(args.id)?;
     Ok(())
 }

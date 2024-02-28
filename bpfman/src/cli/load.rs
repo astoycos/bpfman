@@ -19,15 +19,15 @@ use crate::{
 };
 
 impl LoadSubcommand {
-    pub(crate) async fn execute(&self, bpf_manager: &mut BpfManager) -> anyhow::Result<()> {
+    pub(crate) fn execute(&self, bpf_manager: &mut BpfManager) -> anyhow::Result<()> {
         match self {
-            LoadSubcommand::File(l) => execute_load_file(bpf_manager, l).await,
-            LoadSubcommand::Image(l) => execute_load_image(bpf_manager, l).await,
+            LoadSubcommand::File(l) => execute_load_file(bpf_manager, l),
+            LoadSubcommand::Image(l) => execute_load_image(bpf_manager, l),
         }
     }
 }
 
-pub(crate) async fn execute_load_file(
+pub(crate) fn execute_load_file(
     bpf_manager: &mut BpfManager,
     args: &LoadFileArgs,
 ) -> anyhow::Result<()> {
@@ -46,16 +46,14 @@ pub(crate) async fn execute_load_file(
         args.map_owner_id,
     )?;
 
-    let program = bpf_manager
-        .add_program(args.command.get_program(data)?)
-        .await?;
+    let program = bpf_manager.add_program(args.command.get_program(data)?)?;
 
     ProgTable::new_get_bpfman(&Some((&program).try_into()?))?.print();
     ProgTable::new_get_unsupported(&Some((&program).try_into()?))?.print();
     Ok(())
 }
 
-pub(crate) async fn execute_load_image(
+pub(crate) fn execute_load_image(
     bpf_manager: &mut BpfManager,
     args: &LoadImageArgs,
 ) -> anyhow::Result<()> {
@@ -74,9 +72,7 @@ pub(crate) async fn execute_load_image(
         args.map_owner_id,
     )?;
 
-    let program = bpf_manager
-        .add_program(args.command.get_program(data)?)
-        .await?;
+    let program = bpf_manager.add_program(args.command.get_program(data)?)?;
 
     ProgTable::new_get_bpfman(&Some((&program).try_into()?))?.print();
     ProgTable::new_get_unsupported(&Some((&program).try_into()?))?.print();

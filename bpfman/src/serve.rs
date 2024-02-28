@@ -23,7 +23,7 @@ use tonic::transport::Server;
 
 use crate::{
     bpf::BpfManager,
-    oci_utils::ImageManager,
+    //oci_utils::ImageManager,
     rpc::BpfmanLoader,
     storage::StorageManager,
     utils::{set_file_permissions, SOCK_MODE},
@@ -36,7 +36,6 @@ pub async fn serve(
     socket_path: &Path,
 ) -> anyhow::Result<()> {
     let (shutdown_tx, shutdown_rx1) = broadcast::channel(32);
-    let shutdown_rx2 = shutdown_tx.subscribe();
     let shutdown_rx3 = shutdown_tx.subscribe();
     let shutdown_rx4 = shutdown_tx.subscribe();
     let shutdown_handle = tokio::spawn(shutdown_handler(timeout, shutdown_tx));
@@ -47,19 +46,19 @@ pub async fn serve(
     let service = BpfmanServer::new(loader);
 
     let mut listeners: Vec<_> = Vec::new();
-    let (itx, irx) = mpsc::channel(32);
+    //let (itx, irx) = mpsc::channel(32);
 
-    let allow_unsigned = config.signing.as_ref().map_or(true, |s| s.allow_unsigned);
+    //let allow_unsigned = config.signing.as_ref().map_or(true, |s| s.allow_unsigned);
 
-    let mut image_manager = ImageManager::new(allow_unsigned, irx).await?;
-    let image_manager_handle = tokio::spawn(async move {
-        image_manager.run(shutdown_rx2).await;
-    });
+    // let mut image_manager = ImageManager::new(allow_unsigned, irx).await?;
+    // let image_manager_handle = tokio::spawn(async move {
+    //     image_manager.run(shutdown_rx2).await;
+    // });
 
     // Rebuild bpf_manager before starting the unix server to ensure that it
     // doesn't race with the creation of a `ProgramData` object in rpc.rs.
-    let mut bpf_manager = BpfManager::new(config.clone(), Some(rx), Some(itx));
-    bpf_manager.rebuild_state().await?;
+    let mut bpf_manager = BpfManager::new(config.clone(), Some(rx));
+    bpf_manager.rebuild_state()?;
 
     let handle = serve_unix(socket_path, service.clone(), shutdown_rx1).await?;
     listeners.push(handle);
@@ -83,9 +82,8 @@ pub async fn serve(
         let storage_manager = StorageManager::new(tx);
         let storage_manager_handle =
             tokio::spawn(async move { storage_manager.run(shutdown_rx3).await });
-        let (_, res_image, res_storage, _, _) = join!(
+        let (_, res_storage, _, _) = join!(
             join_listeners(listeners),
-            image_manager_handle,
             storage_manager_handle,
             bpf_manager.process_commands(shutdown_rx4),
             shutdown_handle
@@ -93,17 +91,13 @@ pub async fn serve(
         if let Some(e) = res_storage.err() {
             return Err(e.into());
         }
-        if let Some(e) = res_image.err() {
-            return Err(e.into());
-        }
     } else {
-        let (_, res_image, _, _) = join!(
+        let (_, _, res_bpfman) = join!(
             join_listeners(listeners),
-            image_manager_handle,
             bpf_manager.process_commands(shutdown_rx4),
             shutdown_handle
         );
-        if let Some(e) = res_image.err() {
+        if let Some(e) = res_bpfman.err() {
             return Err(e.into());
         }
     }
@@ -153,7 +147,7 @@ async fn serve_unix(
     let uds_stream = if let Ok(stream) = systemd_unix_stream() {
         stream
     } else {
-        std_unix_stream(path).await?
+        std_unix_stream(path)?
     };
 
     let serve = Server::builder()
@@ -197,7 +191,7 @@ fn systemd_unix_stream() -> anyhow::Result<UnixListenerStream> {
     Err(anyhow!("Unable to retrieve fd from systemd"))
 }
 
-async fn std_unix_stream(path: &Path) -> anyhow::Result<UnixListenerStream> {
+fn std_unix_stream(path: &Path) -> anyhow::Result<UnixListenerStream> {
     // Listen on Unix socket
     if path.exists() {
         // Attempt to remove the socket, since bind fails if it exists
@@ -207,7 +201,7 @@ async fn std_unix_stream(path: &Path) -> anyhow::Result<UnixListenerStream> {
     let uds = UnixListener::bind(path)?;
     let stream = UnixListenerStream::new(uds);
     // Always set the file permissions of our listening socket.
-    set_file_permissions(path, SOCK_MODE).await;
+    set_file_permissions(path, SOCK_MODE);
 
     info!("Using default Unix socket");
     Ok(stream)

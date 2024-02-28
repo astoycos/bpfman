@@ -8,7 +8,7 @@ use lazy_static::lazy_static;
 use log::info;
 use sled::{Config as SledConfig, Db};
 
-use crate::utils::open_config_file;
+use crate::{oci_utils::ImageManager, utils::open_config_file};
 
 mod bpf;
 mod cli;
@@ -54,9 +54,19 @@ fn init_database(sled_config: SledConfig) -> anyhow::Result<Db> {
     bail!("Timed out");
 }
 
+fn init_image_manager() -> anyhow::Result<ImageManager> {
+    let config = open_config_file();
+    ImageManager::new(config.signing.as_ref().map_or(true, |s| s.allow_unsigned))
+}
+
 lazy_static! {
     pub static ref ROOT_DB: Db =
         init_database(get_db_config()).expect("Unable to open root database");
+}
+
+lazy_static! {
+    pub static ref IMAGE_MANAGER: ImageManager =
+        init_image_manager().expect("Unable to initialize image manager");
 }
 
 #[tokio::main]

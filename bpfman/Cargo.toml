@@ -45,10 +45,7 @@ nix = { workspace = true, features = [
     "socket",
     "user",
 ] }
-oci-distribution = { workspace = true, default-features = false, features = [
-    "rustls-tls",
-    "trust-dns",
-] }
+oci-distribution = { workspace = true, default-features = true }
 rand = { workspace = true }
 rtnetlink = { workspace = true, features = ["tokio_socket"] }
 serde = { workspace = true, features = ["derive"] }

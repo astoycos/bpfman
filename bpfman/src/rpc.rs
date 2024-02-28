@@ -14,9 +14,13 @@ use log::warn;
 use tokio::sync::{mpsc, mpsc::Sender, oneshot};
 use tonic::{Request, Response, Status};
 
-use crate::command::{
-    Command, GetArgs, KprobeProgram, ListFilter, LoadArgs, Program, ProgramData, PullBytecodeArgs,
-    TcProgram, TracepointProgram, UnloadArgs, UprobeProgram, XdpProgram,
+use crate::{
+    command::{
+        Command, GetArgs, KprobeProgram, ListFilter, LoadArgs, Program, ProgramData, TcProgram,
+        TracepointProgram, UnloadArgs, UprobeProgram, XdpProgram,
+    },
+    oci_utils::image_manager::BytecodeImage,
+    IMAGE_MANAGER,
 };
 
 #[derive(Debug)]
@@ -319,36 +323,21 @@ impl Bpfman for BpfmanLoader {
         request: tonic::Request<PullBytecodeRequest>,
     ) -> std::result::Result<tonic::Response<PullBytecodeResponse>, tonic::Status> {
         let request = request.into_inner();
-        let image = match request.image {
+        let image: BytecodeImage = match request.image {
             Some(i) => i.into(),
             None => return Err(Status::aborted("Empty pull_bytecode request received")),
         };
-        let (resp_tx, resp_rx) = oneshot::channel();
-        let cmd = Command::PullBytecode(PullBytecodeArgs {
-            image,
-            responder: resp_tx,
-        });
 
-        self.tx.send(cmd).await.unwrap();
-
-        // Await the response
-        match resp_rx.await {
-            Ok(res) => match res {
-                Ok(_) => {
-                    let reply = PullBytecodeResponse {};
-                    Ok(Response::new(reply))
-                }
-                Err(e) => {
-                    warn!("BPFMAN pull_bytecode error: {:#?}", e);
-                    Err(Status::aborted(format!("{e}")))
-                }
-            },
-
-            Err(e) => {
-                warn!("RPC pull_bytecode error: {:#?}", e);
-                Err(Status::aborted(format!("{e}")))
-            }
-        }
+        IMAGE_MANAGER
+            .get_image(
+                &image.image_url,
+                image.image_pull_policy,
+                image.username,
+                image.password,
+            )
+            .map_err(|e| Status::aborted(format!("BPFMAN pull_bytecode error: {e}")))?;
+        let reply = PullBytecodeResponse {};
+        Ok(Response::new(reply))
     }
 }
 
@@ -450,7 +439,7 @@ mod test {
                 Command::Unload(args) => args.responder.send(Ok(())).unwrap(),
                 Command::List { responder, .. } => responder.send(vec![]).unwrap(),
                 Command::Get(args) => args.responder.send(Ok(program.clone())).unwrap(),
-                Command::PullBytecode(args) => args.responder.send(Ok(())).unwrap(),
+                Command::PullBytecode(args) => args._responder.send(Ok(())).unwrap(),
             }
         }
     }
