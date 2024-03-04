@@ -17,12 +17,13 @@ use log::debug;
 use netlink_packet_route::tc::TcAttribute;
 
 use crate::{
-    bpf::{calc_map_pin_path, create_map_pin_path},
+    calc_map_pin_path,
     command::{
         Direction,
         Direction::{Egress, Ingress},
         Program, TcProgram,
     },
+    create_map_pin_path,
     dispatcher_config::TcDispatcherConfig,
     errors::BpfmanError,
     multiprog::{Dispatcher, TC_DISPATCHER_PREFIX},
