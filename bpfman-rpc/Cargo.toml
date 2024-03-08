@@ -29,7 +29,6 @@ clap = { workspace = true, features = [
     "suggestions",
     "usage",
 ] }
-comfy-table = { workspace = true, features = ["tty"] }
 env_logger = { workspace = true }
 flate2 = { workspace = true, features = ["zlib"] }
 futures = { workspace = true }
@@ -71,7 +70,6 @@ toml = { workspace = true }
 tonic = { workspace = true, features = ["transport"] }
 tower = { workspace = true }
 url = { workspace = true }
-users = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

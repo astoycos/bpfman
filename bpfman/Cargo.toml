@@ -38,7 +38,6 @@ flate2 = { workspace = true, features = ["zlib"] }
 futures = { workspace = true }
 hex = { workspace = true, features = ["std"] }
 lazy_static = { workspace = true }
-libsystemd = { workspace = true }
 log = { workspace = true }
 netlink-packet-route = { workspace = true }
 nix = { workspace = true, features = [
@@ -74,7 +73,6 @@ toml = { workspace = true }
 tonic = { workspace = true, features = ["transport"] }
 tower = { workspace = true }
 url = { workspace = true }
-users = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

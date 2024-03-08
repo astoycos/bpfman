@@ -377,7 +377,6 @@ dependencies = [
  "futures",
  "hex",
  "lazy_static",
- "libsystemd",
  "log",
  "netlink-packet-route",
  "nix 0.28.0",
@@ -399,7 +398,6 @@ dependencies = [
  "tonic",
  "tower",
  "url",
- "users",
 ]
 
 [[package]]
@@ -456,7 +454,6 @@ dependencies = [
  "caps",
  "chrono",
  "clap",
- "comfy-table",
  "env_logger",
  "flate2",
  "futures",
@@ -484,7 +481,6 @@ dependencies = [
  "tonic",
  "tower",
  "url",
- "users",
 ]
 
 [[package]]
@@ -1676,7 +1672,6 @@ dependencies = [
  "predicates",
  "rand",
  "regex",
- "sled",
 ]
 
 [[package]]
@@ -3972,15 +3967,6 @@ name = "urlencoding"
 version = "2.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "daf8dba3b7eb870caf1ddeed7bc9d2a049f3cfdfae7cb521b087cc33ae4c49da"
-
-[[package]]
-name = "users"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24cc0f6d6f267b73e5a2cadf007ba8f9bc39c6a6f9666f8cf25ea809a153b032"
-dependencies = [
- "libc",
-]
 
 [[package]]
 name = "utf8parse"

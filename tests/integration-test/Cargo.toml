@@ -15,4 +15,3 @@ log = { workspace = true }
 predicates = { workspace = true }
 rand = { workspace = true, features = ["std", "std_rng"] }
 regex = { workspace = true, features = ["unicode-perl"] }
-sled = { workspace = true }
