@@ -26,7 +26,7 @@ use crate::{errors::BpfmanError, BPFMAN_ENV_LOG_LEVEL};
 
 // The bpfman socket should always allow the same users and members of the same group
 // to Read/Write to it.
-pub(crate) const SOCK_MODE: u32 = 0o0660;
+pub const SOCK_MODE: u32 = 0o0660;
 
 // Like tokio::fs::read, but with O_NOCTTY set
 pub(crate) fn read<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, BpfmanError> {
@@ -54,7 +54,7 @@ pub(crate) fn get_ifindex(iface: &str) -> Result<u32, BpfmanError> {
     }
 }
 
-pub(crate) fn set_file_permissions(path: &Path, mode: u32) {
+pub fn set_file_permissions(path: &Path, mode: u32) {
     // Set the permissions on the file based on input
     if (set_permissions(path, std::fs::Permissions::from_mode(mode))).is_err() {
         warn!(

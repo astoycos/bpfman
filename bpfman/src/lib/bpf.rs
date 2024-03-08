@@ -24,17 +24,12 @@ use bpfman_api::{
     ProgramType,
 };
 use lazy_static::lazy_static;
-use log::{debug, error, info, warn};
+use log::{debug, info, warn};
 use sled::{Config as SledConfig, Db};
-use tokio::{
-    select,
-    sync::{broadcast, mpsc::Receiver},
-};
 
 use crate::{
     command::{
-        Command, Direction, ListFilter, Program, ProgramData, UnloadArgs, PROGRAM_PREFIX,
-        PROGRAM_PRE_LOAD_PREFIX,
+        Direction, ListFilter, Program, ProgramData, PROGRAM_PREFIX, PROGRAM_PRE_LOAD_PREFIX,
     },
     errors::BpfmanError,
     multiprog::{
@@ -53,10 +48,8 @@ mod dispatcher_config;
 pub mod errors;
 mod multiprog;
 pub mod oci_utils;
-mod rpc;
-pub mod serve;
 mod static_program;
-mod storage;
+pub mod storage;
 pub mod utils;
 
 const MAPS_MODE: u32 = 0o0660;
@@ -100,15 +93,13 @@ lazy_static! {
 
 pub struct BpfManager {
     config: Config,
-    commands: Option<Receiver<Command>>,
     pub image_manager: Option<ImageManager>,
 }
 
 impl BpfManager {
-    pub fn new(config: Config, commands: Option<Receiver<Command>>) -> Self {
+    pub fn new(config: Config) -> Self {
         Self {
             config,
-            commands,
             image_manager: None,
         }
     }
@@ -275,7 +266,7 @@ impl BpfManager {
             })
     }
 
-    pub(crate) async fn rebuild_state(&mut self) -> Result<(), anyhow::Error> {
+    pub async fn rebuild_state(&mut self) -> Result<(), anyhow::Error> {
         debug!("BpfManager::rebuild_state()");
         self.init_image_manager().await;
 
@@ -1022,57 +1013,6 @@ impl BpfManager {
                 image.password.clone(),
             )
             .await?;
-        Ok(())
-    }
-
-    pub(crate) async fn process_commands(&mut self, mut shutdown_channel: broadcast::Receiver<()>) {
-        if self.commands.is_none() {
-            error!("Internal error occurred. Commands not set.");
-        } else {
-            loop {
-                // Start receiving messages
-                select! {
-                    biased;
-                    _ = shutdown_channel.recv() => {
-                        info!("Signal received to stop command processing");
-                        ROOT_DB.flush().expect("Unable to flush database to disk before shutting down BpfManager");
-                        break;
-                    }
-                    Some(cmd) = self.commands.as_mut().unwrap().recv() => {
-                        match cmd {
-                            Command::Load(args) => {
-                                let prog = self.add_program(args.program).await;
-                                // Ignore errors as they'll be propagated to caller in the RPC status
-                                let _ = args.responder.send(prog);
-                            },
-                            Command::Unload(args) => self.unload_command(args).await.unwrap(),
-                            Command::List { responder, filter } => {
-                                let progs = self.list_programs(filter);
-                                // Ignore errors as they'll be propagated to caller in the RPC status
-                                let _ = responder.send(progs);
-                            }
-                            Command::Get(args) => {
-                                let prog = self.get_program(args.id);
-                                // Ignore errors as they'll be propagated to caller in the RPC status
-                                let _ = args.responder.send(prog);
-                            },
-                            Command::PullBytecode(args) => {
-                                let res = self.pull_bytecode(args.image).await;
-                                // Ignore errors as they'll be propagated to caller in the RPC status
-                                let _ = args.responder.send(res.map_err(|e| e.into()));
-                            }
-                        }
-                    }
-                }
-            }
-            info!("Stopping processing commands");
-        }
-    }
-
-    async fn unload_command(&mut self, args: UnloadArgs) -> anyhow::Result<()> {
-        let res = self.remove_program(args.id).await;
-        // Ignore errors as they'll be propagated to caller in the RPC status
-        let _ = args.responder.send(res);
         Ok(())
     }
 

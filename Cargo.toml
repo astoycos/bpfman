@@ -4,6 +4,7 @@ members = [
     "bpfman",
     "bpfman-api",
     "bpfman-ns",
+    "bpfman-rpc",
     "csi",
     "tests/integration-test",
     "tests/integration-test-macros",

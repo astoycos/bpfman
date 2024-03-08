@@ -105,20 +105,6 @@ const FEXIT_FN_NAME: &str = "fexit_fn_name";
 /// the command response back to the requester.
 type Responder<T> = oneshot::Sender<T>;
 
-/// Multiple different commands are multiplexed over a single channel.
-#[derive(Debug)]
-pub enum Command {
-    /// Load a program
-    Load(LoadArgs),
-    Unload(UnloadArgs),
-    List {
-        responder: Responder<Vec<Program>>,
-        filter: ListFilter,
-    },
-    Get(GetArgs),
-    PullBytecode(PullBytecodeArgs),
-}
-
 #[derive(Debug, Clone, Default)]
 pub struct ListFilter {
     pub(crate) program_type: Option<u32>,
@@ -198,8 +184,8 @@ impl ListFilter {
 
 #[derive(Debug)]
 pub struct LoadArgs {
-    pub(crate) program: Program,
-    pub(crate) responder: Responder<Result<Program, BpfmanError>>,
+    pub program: Program,
+    pub responder: Responder<Result<Program, BpfmanError>>,
 }
 
 #[derive(Debug, Clone)]
@@ -212,24 +198,6 @@ pub enum Program {
     Fentry(FentryProgram),
     Fexit(FexitProgram),
     Unsupported(ProgramData),
-}
-
-#[derive(Debug)]
-pub struct UnloadArgs {
-    pub(crate) id: u32,
-    pub(crate) responder: Responder<Result<(), BpfmanError>>,
-}
-
-#[derive(Debug)]
-pub struct GetArgs {
-    pub(crate) id: u32,
-    pub(crate) responder: Responder<Result<Program, BpfmanError>>,
-}
-
-#[derive(Debug)]
-pub struct PullBytecodeArgs {
-    pub(crate) image: BytecodeImage,
-    pub(crate) responder: Responder<Result<(), BpfmanError>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
