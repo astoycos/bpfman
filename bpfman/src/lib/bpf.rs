@@ -86,14 +86,10 @@ fn init_database(sled_config: SledConfig) -> anyhow::Result<Db> {
     bail!("Timed out");
 }
 
-lazy_static! {
-    pub static ref ROOT_DB: Db =
-        init_database(get_db_config()).expect("Unable to open root database");
-}
-
 pub struct BpfManager {
     config: Config,
     pub image_manager: Option<ImageManager>,
+    pub root_db: Db,
 }
 
 impl BpfManager {
@@ -101,6 +97,7 @@ impl BpfManager {
         Self {
             config,
             image_manager: None,
+            root_db: init_database(get_db_config()).expect("Unable to open root database"), 
         }
     }
 
@@ -134,12 +131,12 @@ impl BpfManager {
             }
         };
 
-        ROOT_DB
+        self.root_db
             .tree_names()
             .into_iter()
             .find(|p| bytes_to_string(p).contains(&tree_name_prefix))
             .map(|p| {
-                let tree = ROOT_DB.open_tree(p).expect("unable to open database tree");
+                let tree = self.root_db.open_tree(p).expect("unable to open database tree");
                 Dispatcher::new_from_db(tree)
             })
     }
@@ -158,8 +155,8 @@ impl BpfManager {
         let prog_tree: sled::IVec = (PROGRAM_PREFIX.to_string() + &id.to_string())
             .as_bytes()
             .into();
-        if ROOT_DB.tree_names().contains(&prog_tree) {
-            let tree = ROOT_DB
+        if self.root_db.tree_names().contains(&prog_tree) {
+            let tree = self.root_db
                 .open_tree(prog_tree)
                 .expect("unable to open database tree");
             Some(Program::new_from_db(*id, tree).expect("Failed to build program from database"))
@@ -169,12 +166,12 @@ impl BpfManager {
     }
 
     fn filter(
-        &self,
+        &'_ self,
         program_type: ProgramType,
         if_index: Option<u32>,
         direction: Option<Direction>,
-    ) -> impl Iterator<Item = Program> {
-        ROOT_DB
+    ) -> impl Iterator<Item = Program> + '_ {
+        self.root_db
             .tree_names()
             .into_iter()
             .filter(|p| bytes_to_string(p).contains(PROGRAM_PREFIX))
@@ -185,7 +182,7 @@ impl BpfManager {
                     .unwrap()
                     .parse::<u32>()
                     .unwrap();
-                let tree = ROOT_DB.open_tree(p).expect("unable to open database tree");
+                let tree = self.root_db.open_tree(p).expect("unable to open database tree");
                 Program::new_from_db(id, tree).expect("Failed to build program from database")
             })
             .filter(move |p| {
@@ -246,8 +243,8 @@ impl BpfManager {
         }
     }
 
-    fn get_programs_iter(&self) -> impl Iterator<Item = (u32, Program)> {
-        ROOT_DB
+    fn get_programs_iter(&self) -> impl Iterator<Item = (u32, Program)> + '_ {
+        self.root_db
             .tree_names()
             .into_iter()
             .filter(|p| bytes_to_string(p).contains(PROGRAM_PREFIX))
@@ -258,7 +255,7 @@ impl BpfManager {
                     .unwrap()
                     .parse::<u32>()
                     .unwrap();
-                let tree = ROOT_DB.open_tree(p).expect("unable to open database tree");
+                let tree = self.root_db.open_tree(p).expect("unable to open database tree");
                 (
                     id,
                     Program::new_from_db(id, tree).expect("Failed to build program from database"),
@@ -274,7 +271,7 @@ impl BpfManager {
         let mut dispatchers = Vec::new();
 
         // re-build programs from database, cache dispatchers to rebuild after.
-        for tree_name in ROOT_DB.tree_names() {
+        for tree_name in self.root_db.tree_names() {
             let name = &bytes_to_string(&tree_name);
 
             if name.contains(TC_DISPATCHER_PREFIX) || name.contains(XDP_DISPATCHER_PREFIX) {
@@ -283,7 +280,7 @@ impl BpfManager {
             } else if name.contains(PROGRAM_PRE_LOAD_PREFIX) {
                 debug!("Removing temporary tree on rebuild: {name}");
                 // Drop temporary DB trees, as it means bpfman crashed mid load
-                ROOT_DB
+                self.root_db
                     .drop_tree(name)
                     .expect("unable to remove temporary program tree");
                 continue;
@@ -291,7 +288,7 @@ impl BpfManager {
         }
 
         for dispatcher in dispatchers {
-            let tree = ROOT_DB
+            let tree = self.root_db
                 .open_tree(dispatcher.clone())
                 .expect("unable to open database tree");
 
@@ -367,7 +364,7 @@ impl BpfManager {
 
                 // Swap the db tree to be persisted with the unique program ID generated
                 // by the kernel.
-                program.get_data_mut().swap_tree(id)?;
+                program.get_data_mut().swap_tree(&self.root_db, id)?;
 
                 Ok(program)
             }
@@ -380,7 +377,7 @@ impl BpfManager {
                 }
 
                 // Cleanup any program that failed to create. Ignore any delete errors.
-                let _ = program.delete();
+                let _ = program.delete(&self.root_db);
 
                 Err(e)
             }
@@ -454,7 +451,7 @@ impl BpfManager {
             // If kernel ID was never set there's no pins to cleanup here so just continue
             if program.get_data().get_id().is_ok() {
                 program
-                    .delete()
+                    .delete(&self.root_db)
                     .map_err(BpfmanError::BpfmanProgramDeleteError)?;
             }
             Err(e)
@@ -776,7 +773,7 @@ impl BpfManager {
             Err(_) => {
                 // If kernel ID was never set there's no pins to cleanup here so just continue
                 if p.get_data().get_id().is_ok() {
-                    p.delete().map_err(BpfmanError::BpfmanProgramDeleteError)?;
+                    p.delete(&self.root_db).map_err(BpfmanError::BpfmanProgramDeleteError)?;
                 };
             }
         };
@@ -808,7 +805,7 @@ impl BpfManager {
                 let if_name = prog.if_name().unwrap();
                 let direction = prog.direction()?;
 
-                prog.delete()
+                prog.delete(&self.root_db)
                     .map_err(BpfmanError::BpfmanProgramDeleteError)?;
 
                 self.remove_multi_attach_program(did, program_type, if_index, if_name, direction)
@@ -820,7 +817,7 @@ impl BpfManager {
             | Program::Fentry(_)
             | Program::Fexit(_)
             | Program::Unsupported(_) => {
-                prog.delete()
+                prog.delete(&self.root_db)
                     .map_err(BpfmanError::BpfmanProgramDeleteError)?;
             }
         }
@@ -952,7 +949,7 @@ impl BpfManager {
                 match bpfman_progs.remove(&prog_id) {
                     Some(p) => p.to_owned(),
                     None => {
-                        let db_tree = ROOT_DB
+                        let db_tree = self.root_db
                             .open_tree(prog_id.to_string())
                             .expect("Unable to open program database tree for listing programs");
 
@@ -980,7 +977,7 @@ impl BpfManager {
                 .find_map(|p| {
                     let prog = p.ok()?;
                     if prog.id() == id {
-                        let db_tree = ROOT_DB
+                        let db_tree = self.root_db
                             .open_tree(prog.id().to_string())
                             .expect("Unable to open program database tree for listing programs");
 
@@ -1021,7 +1018,7 @@ impl BpfManager {
         let map_pin_path = calc_map_pin_path(map_owner_id);
         let name: &sled::IVec = &format!("{}{}", MAP_PREFIX, map_owner_id).as_bytes().into();
 
-        if ROOT_DB.tree_names().contains(name) {
+        if self.root_db.tree_names().contains(name) {
             // Return the map_pin_path
             return Ok(map_pin_path);
         }
@@ -1069,7 +1066,7 @@ impl BpfManager {
 
         match map_owner_id {
             Some(m) => {
-                if let Some(map) = get_map(m) {
+                if let Some(map) = get_map(m, &self.root_db) {
                     push_maps_used_by(map.clone(), id)?;
                     let used_by = get_maps_used_by(map)?;
 
@@ -1090,7 +1087,7 @@ impl BpfManager {
                 }
             }
             None => {
-                let db_tree = ROOT_DB
+                let db_tree = self.root_db
                     .open_tree(format!("{}{}", MAP_PREFIX, id))
                     .expect("Unable to open map db tree");
 
@@ -1135,7 +1132,7 @@ impl BpfManager {
             None => id,
         };
 
-        if let Some(map) = get_map(index) {
+        if let Some(map) = get_map(index, &self.root_db) {
             let mut used_by = get_maps_used_by(map.clone())?;
 
             if let Some(index) = used_by.iter().position(|value| *value == id) {
@@ -1148,7 +1145,7 @@ impl BpfManager {
             if used_by.is_empty() {
                 let path: PathBuf = calc_map_pin_path(index);
                 // No more programs using this map, so remove the entry from the map list.
-                ROOT_DB
+                self.root_db
                     .drop_tree(MAP_PREFIX.to_string() + &index.to_string())
                     .expect("unable to drop maps tree");
                 remove_dir_all(path)
@@ -1226,10 +1223,10 @@ pub(crate) fn clear_maps_used_by(db_tree: sled::Tree) {
     });
 }
 
-fn get_map(id: u32) -> Option<sled::Tree> {
-    ROOT_DB
+fn get_map(id: u32, root_db: &Db) -> Option<sled::Tree> {
+    root_db
         .tree_names()
         .into_iter()
         .find(|n| bytes_to_string(n) == format!("{}{}", MAP_PREFIX, id))
-        .map(|n| ROOT_DB.open_tree(n).expect("unable to open map tree"))
+        .map(|n| root_db.open_tree(n).expect("unable to open map tree"))
 }

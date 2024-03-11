@@ -34,8 +34,9 @@ use crate::{
         bytes_to_bool, bytes_to_i32, bytes_to_string, bytes_to_u32, bytes_to_u64, bytes_to_usize,
         sled_get, sled_get_option, sled_insert,
     },
-    ROOT_DB,
 };
+
+use sled::Db;
 
 /// These constants define the key of SLED DB
 pub(crate) const PROGRAM_PREFIX: &str = "program_";
@@ -398,6 +399,7 @@ impl ProgramData {
         Self { db_tree: tree }
     }
     pub fn new_pre_load(
+        root_db: &Db,
         location: Location,
         name: String,
         metadata: HashMap<String, String>,
@@ -407,7 +409,7 @@ impl ProgramData {
         let mut rng = rand::thread_rng();
         let id_rand = rng.gen::<u32>();
 
-        let db_tree = ROOT_DB
+        let db_tree = root_db
             .open_tree(PROGRAM_PRE_LOAD_PREFIX.to_string() + &id_rand.to_string())
             .expect("Unable to open program database tree");
 
@@ -425,8 +427,8 @@ impl ProgramData {
         Ok(pd)
     }
 
-    pub(crate) fn swap_tree(&mut self, new_id: u32) -> Result<(), BpfmanError> {
-        let new_tree = ROOT_DB
+    pub(crate) fn swap_tree(&mut self,root_db: &Db, new_id: u32) -> Result<(), BpfmanError> {
+        let new_tree = root_db
             .open_tree(PROGRAM_PREFIX.to_string() + &new_id.to_string())
             .expect("Unable to open program database tree");
 
@@ -441,7 +443,7 @@ impl ProgramData {
             })?;
         }
 
-        ROOT_DB
+        root_db
             .drop_tree(self.db_tree.name())
             .expect("unable to delete temporary program tree");
 
@@ -1487,9 +1489,9 @@ impl Program {
         }
     }
 
-    pub fn delete(&self) -> Result<(), anyhow::Error> {
+    pub fn delete(&self, root_db: &Db) -> Result<(), anyhow::Error> {
         let id = self.get_data().get_id()?;
-        ROOT_DB.drop_tree(self.get_data().db_tree.name())?;
+        root_db.drop_tree(self.get_data().db_tree.name())?;
 
         let path = format!("{RTDIR_FS}/prog_{id}");
         if PathBuf::from(&path).exists() {

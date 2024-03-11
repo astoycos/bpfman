@@ -18,10 +18,9 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use tar::Archive;
 
-use crate::{
-    oci_utils::{cosign::CosignVerifier, ImageError},
-    ROOT_DB,
-};
+use crate::oci_utils::{cosign::CosignVerifier, ImageError};
+
+use sled::Db;
 
 #[derive(Debug, Deserialize, Default)]
 pub struct ContainerImageMetadata {
@@ -114,6 +113,7 @@ impl ImageManager {
 
     pub(crate) async fn get_image(
         &mut self,
+        root_db: &Db,
         image_url: &str,
         pull_policy: ImagePullPolicy,
         username: Option<String>,
@@ -130,7 +130,7 @@ impl ImageManager {
 
         let image_content_key = get_image_content_key(&image);
 
-        let exists: bool = ROOT_DB
+        let exists: bool = root_db
             .contains_key(image_content_key.to_string() + "manifest.json")
             .map_err(|e| {
                 ImageError::DatabaseError("failed to read db".to_string(), e.to_string())
@@ -175,6 +175,7 @@ impl ImageManager {
 
     pub async fn pull_image(
         &mut self,
+        root_db: &Db,
         image: Reference,
         base_key: &str,
         username: Option<String>,
@@ -203,12 +204,12 @@ impl ImageManager {
             .map_err(|e| ImageError::ByteCodeImageProcessFailure(e.into()))?;
 
         // inset and flush to disk to avoid races across threads on write.
-        ROOT_DB
+        root_db
             .insert(image_manifest_key, image_manifest_json.as_str())
             .map_err(|e| {
                 ImageError::DatabaseError("failed to write to db".to_string(), e.to_string())
             })?;
-        ROOT_DB.flush().map_err(|e| {
+        root_db.flush().map_err(|e| {
             ImageError::DatabaseError("failed to flush db".to_string(), e.to_string())
         })?;
 
@@ -236,12 +237,12 @@ impl ImageManager {
             serde_json::from_str(&image_config["config"]["Labels"].to_string())
                 .map_err(|e| ImageError::ByteCodeImageProcessFailure(e.into()))?;
 
-        ROOT_DB
+        root_db
             .insert(image_config_path, config_contents.as_str())
             .map_err(|e| {
                 ImageError::DatabaseError("failed to write to db".to_string(), e.to_string())
             })?;
-        ROOT_DB.flush().map_err(|e| {
+        root_db.flush().map_err(|e| {
             ImageError::DatabaseError("failed to flush db".to_string(), e.to_string())
         })?;
 
@@ -263,10 +264,10 @@ impl ImageManager {
             .map(|layer| layer.data)
             .ok_or(ImageError::BytecodeImageExtractFailure)?;
 
-        ROOT_DB.insert(bytecode_path, image_content).map_err(|e| {
+        root_db.insert(bytecode_path, image_content).map_err(|e| {
             ImageError::DatabaseError("failed to write to db".to_string(), e.to_string())
         })?;
-        ROOT_DB.flush().map_err(|e| {
+        root_db.flush().map_err(|e| {
             ImageError::DatabaseError("failed to flush db".to_string(), e.to_string())
         })?;
 
@@ -275,11 +276,12 @@ impl ImageManager {
 
     pub(crate) fn get_bytecode_from_image_store(
         &self,
+        root_db: &Db,
         base_key: String,
     ) -> Result<Vec<u8>, ImageError> {
         let manifest = serde_json::from_str::<OciImageManifest>(
             std::str::from_utf8(
-                &ROOT_DB
+                &root_db
                     .get(base_key.clone() + "manifest.json")
                     .map_err(|e| {
                         ImageError::DatabaseError("failed to read db".to_string(), e.to_string())
@@ -304,7 +306,7 @@ impl ImageManager {
             bytecode_key
         );
 
-        let f = ROOT_DB
+        let f = root_db
             .get(bytecode_key.clone())
             .map_err(|e| ImageError::DatabaseError("failed to read db".to_string(), e.to_string()))?
             .ok_or(ImageError::DatabaseError(
@@ -349,11 +351,12 @@ impl ImageManager {
 
     fn load_image_meta(
         &self,
+        root_db: &Db,
         image_content_key: &str,
     ) -> Result<ContainerImageMetadata, anyhow::Error> {
         let manifest = serde_json::from_str::<OciImageManifest>(
             std::str::from_utf8(
-                &ROOT_DB
+                &root_db
                     .get(image_content_key.to_string() + "manifest.json")
                     .map_err(|e| {
                         ImageError::DatabaseError("failed to read db".to_string(), e.to_string())
@@ -373,7 +376,7 @@ impl ImageManager {
 
         let image_config_key = image_content_key.to_string() + config_sha;
 
-        let db_content = &ROOT_DB
+        let db_content = &root_db
             .get(image_config_key)
             .map_err(|e| ImageError::DatabaseError("failed to read db".to_string(), e.to_string()))?
             .expect("Image manifest is empty");
