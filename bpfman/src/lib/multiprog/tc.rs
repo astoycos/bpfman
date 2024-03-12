@@ -15,6 +15,7 @@ use bpfman_api::{util::directories::*, ImagePullPolicy};
 use futures::stream::TryStreamExt;
 use log::debug;
 use netlink_packet_route::tc::TcAttribute;
+use sled::Db;
 
 use crate::{
     calc_map_pin_path,
@@ -32,7 +33,6 @@ use crate::{
         bytes_to_string, bytes_to_u16, bytes_to_u32, bytes_to_usize, should_map_be_pinned,
         sled_get, sled_get_option, sled_insert,
     },
-    ROOT_DB,
 };
 
 const DEFAULT_PRIORITY: u32 = 50; // Default priority for user programs in the dispatcher
@@ -56,12 +56,13 @@ pub struct TcDispatcher {
 
 impl TcDispatcher {
     pub(crate) fn new(
+        root_db: &Db,
         direction: Direction,
         if_index: u32,
         if_name: String,
         revision: u32,
     ) -> Result<Self, BpfmanError> {
-        let db_tree = ROOT_DB
+        let db_tree = root_db
             .open_tree(format!(
                 "{}_{}_{}_{}",
                 TC_DISPATCHER_PREFIX, if_index, direction, revision
@@ -91,6 +92,7 @@ impl TcDispatcher {
 
     pub(crate) async fn load(
         &mut self,
+        root_db: &Db,
         programs: &mut [Program],
         old_dispatcher: Option<Dispatcher>,
         image_manager: &mut ImageManager,
@@ -128,6 +130,7 @@ impl TcDispatcher {
 
         let (path, bpf_function_name) = image_manager
             .get_image(
+                root_db,
                 &image.image_url,
                 image.image_pull_policy.clone(),
                 image.username.clone(),
@@ -135,7 +138,7 @@ impl TcDispatcher {
             )
             .await?;
 
-        let program_bytes = image_manager.get_bytecode_from_image_store(path)?;
+        let program_bytes = image_manager.get_bytecode_from_image_store(root_db, path)?;
 
         let mut loader = BpfLoader::new()
             .set_global("CONFIG", &config, true)
@@ -158,7 +161,7 @@ impl TcDispatcher {
         self.set_program_name(&bpf_function_name)?;
 
         self.attach_extensions(&mut extensions)?;
-        self.attach(old_dispatcher)?;
+        self.attach(root_db, old_dispatcher)?;
         Ok(())
     }
 
@@ -180,7 +183,11 @@ impl TcDispatcher {
         Ok(false)
     }
 
-    fn attach(&mut self, old_dispatcher: Option<Dispatcher>) -> Result<(), BpfmanError> {
+    fn attach(
+        &mut self,
+        root_db: &Db,
+        old_dispatcher: Option<Dispatcher>,
+    ) -> Result<(), BpfmanError> {
         let if_index = self.get_ifindex()?;
         let iface = self.get_ifname()?;
         let priority = self.get_priority()?;
@@ -250,9 +257,9 @@ impl TcDispatcher {
             // as the old one had.  If this happens, the new dispatcher will get
             // detached if we do a full delete, so don't do it.
             if d.get_handle()? != self.get_handle()? {
-                d.delete(true)?;
+                d.delete(root_db, true)?;
             } else {
-                d.delete(false)?;
+                d.delete(root_db, false)?;
             }
         }
 
@@ -373,7 +380,7 @@ impl TcDispatcher {
         Ok(())
     }
 
-    pub(crate) fn delete(&mut self, full: bool) -> Result<(), BpfmanError> {
+    pub(crate) fn delete(&mut self, root_db: &Db, full: bool) -> Result<(), BpfmanError> {
         let if_index = self.get_ifindex()?;
         let if_name = self.get_ifname()?;
         let revision = self.get_revision()?;
@@ -386,7 +393,7 @@ impl TcDispatcher {
             if_index, revision
         );
 
-        ROOT_DB.drop_tree(self.db_tree.name()).map_err(|e| {
+        root_db.drop_tree(self.db_tree.name()).map_err(|e| {
             BpfmanError::DatabaseError(
                 format!(
                     "unable to drop tc dispatcher tree {:?}",

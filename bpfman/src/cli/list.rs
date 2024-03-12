@@ -40,7 +40,7 @@ pub(crate) async fn execute_list(
             kernel_info: match (&r).try_into() {
                 Ok(i) => {
                     if let Program::Unsupported(_) = r {
-                        r.delete()?;
+                        r.delete(&bpf_manager.root_db)?;
                     };
                     Ok(Some(i))
                 }

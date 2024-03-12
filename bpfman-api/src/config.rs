@@ -41,9 +41,9 @@ impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
             // Maximum numbers of times to attempt to open the database after a failed attempt
-            max_retries: 4,
+            max_retries: 10,
             // Number of milli-seconds to wait between failed database attempts
-            millisec_delay: 500,
+            millisec_delay: 1000,
         }
     }
 }

@@ -47,6 +47,7 @@ impl Bpfman for BpfmanLoader {
         };
 
         let data = ProgramData::new_pre_load(
+            &bpf_manager.root_db,
             bytecode_source,
             request.name,
             request.metadata,
@@ -188,7 +189,7 @@ impl Bpfman for BpfmanLoader {
                 kernel_info: match (&program).try_into() {
                     Ok(i) => {
                         if let Program::Unsupported(_) = program {
-                            program.delete().map_err(|e| {
+                            program.delete(&bpf_manager.root_db).map_err(|e| {
                                 Status::aborted(format!("failed to get program metadata: {e}"))
                             })?;
                         };
@@ -227,7 +228,7 @@ impl Bpfman for BpfmanLoader {
                 kernel_info: match (&r).try_into() {
                     Ok(i) => {
                         if let Program::Unsupported(_) = r {
-                            r.delete().map_err(|e| {
+                            r.delete(&bpf_manager.root_db).map_err(|e| {
                                 Status::aborted(format!("failed to get program metadata: {e}"))
                             })?;
                         };

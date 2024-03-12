@@ -24,6 +24,7 @@ use chrono::{prelude::DateTime, Local};
 use log::{info, warn};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use sled::Db;
 use tokio::sync::oneshot;
 
 use crate::{
@@ -35,8 +36,6 @@ use crate::{
         sled_get, sled_get_option, sled_insert,
     },
 };
-
-use sled::Db;
 
 /// These constants define the key of SLED DB
 pub(crate) const PROGRAM_PREFIX: &str = "program_";
@@ -210,6 +209,7 @@ pub enum Location {
 impl Location {
     async fn get_program_bytes(
         &self,
+        root_db: &Db,
         image_manager: &mut ImageManager,
     ) -> Result<(Vec<u8>, String), BpfmanError> {
         match self {
@@ -217,13 +217,14 @@ impl Location {
             Location::Image(l) => {
                 let (path, bpf_function_name) = image_manager
                     .get_image(
+                        root_db,
                         &l.image_url,
                         l.image_pull_policy.clone(),
                         l.username.clone(),
                         l.password.clone(),
                     )
                     .await?;
-                let bytecode = image_manager.get_bytecode_from_image_store(path)?;
+                let bytecode = image_manager.get_bytecode_from_image_store(root_db, path)?;
 
                 Ok((bytecode, bpf_function_name))
             }
@@ -427,7 +428,7 @@ impl ProgramData {
         Ok(pd)
     }
 
-    pub(crate) fn swap_tree(&mut self,root_db: &Db, new_id: u32) -> Result<(), BpfmanError> {
+    pub(crate) fn swap_tree(&mut self, root_db: &Db, new_id: u32) -> Result<(), BpfmanError> {
         let new_tree = root_db
             .open_tree(PROGRAM_PREFIX.to_string() + &new_id.to_string())
             .expect("Unable to open program database tree");
@@ -679,10 +680,11 @@ impl ProgramData {
 
     pub(crate) async fn set_program_bytes(
         &mut self,
+        root_db: &Db,
         image_manager: &mut ImageManager,
     ) -> Result<(), BpfmanError> {
         let loc = self.get_location()?;
-        match loc.get_program_bytes(image_manager).await {
+        match loc.get_program_bytes(root_db, image_manager).await {
             Err(e) => Err(e),
             Ok((v, s)) => {
                 match loc {

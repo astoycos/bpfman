@@ -21,7 +21,7 @@ pub(crate) async fn execute_get(
             let kernel_info: Option<KernelProgramInfo> = match (&program).try_into() {
                 Ok(i) => {
                     if let Program::Unsupported(_) = program {
-                        program.delete()?
+                        program.delete(&bpf_manager.root_db)?
                     };
                     Some(i)
                 }

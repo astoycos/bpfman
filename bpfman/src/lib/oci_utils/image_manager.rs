@@ -16,11 +16,10 @@ use oci_distribution::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use sled::Db;
 use tar::Archive;
 
 use crate::oci_utils::{cosign::CosignVerifier, ImageError};
-
-use sled::Db;
 
 #[derive(Debug, Deserialize, Default)]
 pub struct ContainerImageMetadata {
@@ -138,20 +137,20 @@ impl ImageManager {
 
         let image_meta = match pull_policy {
             ImagePullPolicy::Always => {
-                self.pull_image(image, &image_content_key, username, password)
+                self.pull_image(root_db, image, &image_content_key, username, password)
                     .await?
             }
             ImagePullPolicy::IfNotPresent => {
                 if exists {
-                    self.load_image_meta(&image_content_key)?
+                    self.load_image_meta(root_db, &image_content_key)?
                 } else {
-                    self.pull_image(image, &image_content_key, username, password)
+                    self.pull_image(root_db, image, &image_content_key, username, password)
                         .await?
                 }
             }
             ImagePullPolicy::Never => {
                 if exists {
-                    self.load_image_meta(&image_content_key)?
+                    self.load_image_meta(root_db, &image_content_key)?
                 } else {
                     Err(ImageError::ByteCodeImageNotfound(image.to_string()))?
                 }
@@ -420,12 +419,16 @@ mod tests {
     use assert_matches::assert_matches;
 
     use super::*;
+    use crate::{get_db_config, init_database};
 
     #[tokio::test]
     async fn image_pull_and_bytecode_verify() {
+        let root_db =
+            init_database(get_db_config()).expect("Unable to open root database for unit test");
         let mut mgr = ImageManager::new(true).await.unwrap();
         let (image_content_key, _) = mgr
             .get_image(
+                &root_db,
                 "quay.io/bpfman-bytecode/xdp_pass:latest",
                 ImagePullPolicy::Always,
                 None,
@@ -435,10 +438,10 @@ mod tests {
             .expect("failed to pull bytecode");
 
         // Assert that an manifest, config and bytecode key were formed for image.
-        assert!(ROOT_DB.scan_prefix(image_content_key.clone()).count() == 3);
+        assert!(root_db.scan_prefix(image_content_key.clone()).count() == 3);
 
         let program_bytes = mgr
-            .get_bytecode_from_image_store(image_content_key)
+            .get_bytecode_from_image_store(&root_db, image_content_key)
             .expect("failed to get bytecode from image store");
 
         assert!(!program_bytes.is_empty())
@@ -447,9 +450,12 @@ mod tests {
     #[tokio::test]
     async fn image_pull_policy_never_failure() {
         let mut mgr = ImageManager::new(true).await.unwrap();
+        let root_db =
+            init_database(get_db_config()).expect("Unable to open root database for unit test");
 
         let result = mgr
             .get_image(
+                &root_db,
                 "quay.io/bpfman-bytecode/xdp_pass:latest",
                 ImagePullPolicy::Never,
                 None,
@@ -464,8 +470,11 @@ mod tests {
     #[should_panic]
     async fn private_image_pull_failure() {
         let mut mgr = ImageManager::new(true).await.unwrap();
+        let root_db =
+            init_database(get_db_config()).expect("Unable to open root database for unit test");
 
         mgr.get_image(
+            &root_db,
             "quay.io/bpfman-bytecode/xdp_pass_private:latest",
             ImagePullPolicy::Always,
             None,
@@ -479,9 +488,12 @@ mod tests {
     async fn private_image_pull_and_bytecode_verify() {
         env_logger::init();
         let mut mgr = ImageManager::new(true).await.unwrap();
+        let root_db =
+            init_database(get_db_config()).expect("Unable to open root database for unit test");
 
         let (image_content_key, _) = mgr
             .get_image(
+                &root_db,
                 "quay.io/bpfman-bytecode/xdp_pass_private:latest",
                 ImagePullPolicy::Always,
                 Some("bpfman-bytecode+bpfmancreds".to_owned()),
@@ -491,10 +503,10 @@ mod tests {
             .expect("failed to pull bytecode");
 
         // Assert that an manifest, config and bytecode key were formed for image.
-        assert!(ROOT_DB.scan_prefix(image_content_key.clone()).count() == 3);
+        assert!(root_db.scan_prefix(image_content_key.clone()).count() == 3);
 
         let program_bytes = mgr
-            .get_bytecode_from_image_store(image_content_key)
+            .get_bytecode_from_image_store(&root_db, image_content_key)
             .expect("failed to get bytecode from image store");
 
         assert!(!program_bytes.is_empty())
@@ -503,9 +515,12 @@ mod tests {
     #[tokio::test]
     async fn image_pull_failure() {
         let mut mgr = ImageManager::new(true).await.unwrap();
+        let root_db =
+            init_database(get_db_config()).expect("Unable to open root database for unit test");
 
         let result = mgr
             .get_image(
+                &root_db,
                 "quay.io/bpfman-bytecode/xdp_pass:latest",
                 ImagePullPolicy::Never,
                 None,

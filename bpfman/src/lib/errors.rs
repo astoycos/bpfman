@@ -60,4 +60,6 @@ pub enum BpfmanError {
     InternalError(String),
     #[error(transparent)]
     BtfError(#[from] aya::BtfError),
+    #[error("Failed to acquire database lock, please try again later")]
+    DatabaseLockError,
 }

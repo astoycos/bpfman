@@ -9,7 +9,6 @@ use std::{
     time::Duration,
 };
 
-use anyhow::bail;
 use aya::{
     programs::{
         fentry::FEntryLink, fexit::FExitLink, kprobe::KProbeLink, links::FdLink, loaded_programs,
@@ -23,7 +22,6 @@ use bpfman_api::{
     ProbeType::{self, *},
     ProgramType,
 };
-use lazy_static::lazy_static;
 use log::{debug, info, warn};
 use sled::{Config as SledConfig, Db};
 
@@ -58,32 +56,30 @@ const MAPS_USED_BY_PREFIX: &str = "map_used_by_";
 pub const BPFMAN_ENV_LOG_LEVEL: &str = "RUST_LOG";
 
 #[cfg(not(test))]
-fn get_db_config() -> SledConfig {
+pub(crate) fn get_db_config() -> SledConfig {
     SledConfig::default().path(bpfman_api::util::directories::STDIR_DB)
 }
 
 #[cfg(test)]
-fn get_db_config() -> SledConfig {
+pub(crate) fn get_db_config() -> SledConfig {
     SledConfig::default().temporary(true)
 }
 
-fn init_database(sled_config: SledConfig) -> anyhow::Result<Db> {
-    let config = open_config_file();
-    for _ in 1..config.database.as_ref().map_or(4, |d| d.max_retries) {
+pub(crate) fn init_database(sled_config: SledConfig) -> Result<Db, BpfmanError> {
+    let database_config = open_config_file().database.unwrap_or_default();
+    for _ in 1..database_config.max_retries {
         if let Ok(db) = sled_config.open() {
             info!("Successfully opened database");
             return Ok(db);
         } else {
             info!(
-                "Failed to open database, retrying after {} milliseconds",
-                config.database.clone().map_or(500, |v| v.millisec_delay)
+                "Database lock is already held, retrying after {} milliseconds",
+                database_config.millisec_delay
             );
-            thread::sleep(Duration::from_millis(
-                config.database.as_ref().map_or(500, |d| d.millisec_delay),
-            ));
+            thread::sleep(Duration::from_millis(database_config.millisec_delay));
         }
     }
-    bail!("Timed out");
+    Err(BpfmanError::DatabaseLockError)
 }
 
 pub struct BpfManager {
@@ -97,7 +93,7 @@ impl BpfManager {
         Self {
             config,
             image_manager: None,
-            root_db: init_database(get_db_config()).expect("Unable to open root database"), 
+            root_db: init_database(get_db_config()).expect("Unable to open root database"),
         }
     }
 
@@ -136,7 +132,10 @@ impl BpfManager {
             .into_iter()
             .find(|p| bytes_to_string(p).contains(&tree_name_prefix))
             .map(|p| {
-                let tree = self.root_db.open_tree(p).expect("unable to open database tree");
+                let tree = self
+                    .root_db
+                    .open_tree(p)
+                    .expect("unable to open database tree");
                 Dispatcher::new_from_db(tree)
             })
     }
@@ -156,7 +155,8 @@ impl BpfManager {
             .as_bytes()
             .into();
         if self.root_db.tree_names().contains(&prog_tree) {
-            let tree = self.root_db
+            let tree = self
+                .root_db
                 .open_tree(prog_tree)
                 .expect("unable to open database tree");
             Some(Program::new_from_db(*id, tree).expect("Failed to build program from database"))
@@ -182,7 +182,10 @@ impl BpfManager {
                     .unwrap()
                     .parse::<u32>()
                     .unwrap();
-                let tree = self.root_db.open_tree(p).expect("unable to open database tree");
+                let tree = self
+                    .root_db
+                    .open_tree(p)
+                    .expect("unable to open database tree");
                 Program::new_from_db(id, tree).expect("Failed to build program from database")
             })
             .filter(move |p| {
@@ -255,7 +258,10 @@ impl BpfManager {
                     .unwrap()
                     .parse::<u32>()
                     .unwrap();
-                let tree = self.root_db.open_tree(p).expect("unable to open database tree");
+                let tree = self
+                    .root_db
+                    .open_tree(p)
+                    .expect("unable to open database tree");
                 (
                     id,
                     Program::new_from_db(id, tree).expect("Failed to build program from database"),
@@ -288,7 +294,8 @@ impl BpfManager {
         }
 
         for dispatcher in dispatchers {
-            let tree = self.root_db
+            let tree = self
+                .root_db
                 .open_tree(dispatcher.clone())
                 .expect("unable to open database tree");
 
@@ -333,7 +340,10 @@ impl BpfManager {
 
         program
             .get_data_mut()
-            .set_program_bytes(self.image_manager.as_mut().expect("image manager not set"))
+            .set_program_bytes(
+                &self.root_db,
+                self.image_manager.as_mut().expect("image manager not set"),
+            )
             .await?;
 
         let result = match program {
@@ -440,6 +450,7 @@ impl BpfManager {
         };
 
         Dispatcher::new(
+            &self.root_db,
             if_config,
             &mut programs,
             next_revision,
@@ -773,7 +784,8 @@ impl BpfManager {
             Err(_) => {
                 // If kernel ID was never set there's no pins to cleanup here so just continue
                 if p.get_data().get_id().is_ok() {
-                    p.delete(&self.root_db).map_err(BpfmanError::BpfmanProgramDeleteError)?;
+                    p.delete(&self.root_db)
+                        .map_err(BpfmanError::BpfmanProgramDeleteError)?;
                 };
             }
         };
@@ -846,7 +858,7 @@ impl BpfManager {
         if let Some(ref mut old) = old_dispatcher {
             if next_available_id == 0 {
                 // Delete the dispatcher
-                return old.delete(true);
+                return old.delete(&self.root_db, true);
             }
         }
 
@@ -868,6 +880,7 @@ impl BpfManager {
         debug!("next_revision = {next_revision}");
 
         Dispatcher::new(
+            &self.root_db,
             if_config,
             &mut programs,
             next_revision,
@@ -900,7 +913,7 @@ impl BpfManager {
 
             // The following checks should have been done when the dispatcher was built, but check again to confirm
             if programs.is_empty() {
-                return old.delete(true);
+                return old.delete(&self.root_db, true);
             } else if programs.len() > 10 {
                 return Err(BpfmanError::TooManyPrograms);
             }
@@ -919,6 +932,7 @@ impl BpfManager {
             };
 
             Dispatcher::new(
+                &self.root_db,
                 if_config,
                 &mut programs,
                 next_revision,
@@ -949,7 +963,8 @@ impl BpfManager {
                 match bpfman_progs.remove(&prog_id) {
                     Some(p) => p.to_owned(),
                     None => {
-                        let db_tree = self.root_db
+                        let db_tree = self
+                            .root_db
                             .open_tree(prog_id.to_string())
                             .expect("Unable to open program database tree for listing programs");
 
@@ -977,7 +992,8 @@ impl BpfManager {
                 .find_map(|p| {
                     let prog = p.ok()?;
                     if prog.id() == id {
-                        let db_tree = self.root_db
+                        let db_tree = self
+                            .root_db
                             .open_tree(prog.id().to_string())
                             .expect("Unable to open program database tree for listing programs");
 
@@ -1004,6 +1020,7 @@ impl BpfManager {
             .as_mut()
             .expect("image manager not set")
             .get_image(
+                &self.root_db,
                 &image.image_url,
                 image.image_pull_policy.clone(),
                 image.username.clone(),
@@ -1087,7 +1104,8 @@ impl BpfManager {
                 }
             }
             None => {
-                let db_tree = self.root_db
+                let db_tree = self
+                    .root_db
                     .open_tree(format!("{}{}", MAP_PREFIX, id))
                     .expect("Unable to open map db tree");
 

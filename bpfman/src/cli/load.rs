@@ -34,6 +34,7 @@ pub(crate) async fn execute_load_file(
     let bytecode_source = Location::File(args.path.clone());
 
     let data = ProgramData::new_pre_load(
+        &bpf_manager.root_db,
         bytecode_source,
         args.name.clone(),
         args.metadata
@@ -62,6 +63,7 @@ pub(crate) async fn execute_load_image(
     let bytecode_source = Location::Image((&args.pull_args).try_into()?);
 
     let data = ProgramData::new_pre_load(
+        &bpf_manager.root_db,
         bytecode_source,
         args.name.clone(),
         args.metadata
