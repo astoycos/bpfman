@@ -8,6 +8,7 @@ mod protobuf;
 mod public_api;
 mod run;
 mod workspace;
+mod unit_test;
 
 use std::process::exit;
 
@@ -41,6 +42,8 @@ enum Command {
     PublicApi(public_api::Options),
     /// Run lint.
     Lint(lint::Options),
+    /// Run unit tests.
+    UnitTest(unit_test::Options),
 }
 
 fn main() {
@@ -62,6 +65,7 @@ fn main() {
         BuildCompletion(opts) => build_completion::build_completion(opts),
         PublicApi(opts) => public_api::public_api(opts, metadata),
         Lint(_) => lint::lint(),
+        UnitTest(opts) => unit_test::unit_test(opts),
     };
 
     if let Err(e) = ret {
