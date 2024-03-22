@@ -3,6 +3,7 @@ mod build_ebpf;
 mod build_manpage;
 mod copy;
 mod integration_test;
+mod lint;
 mod protobuf;
 mod public_api;
 mod run;
@@ -38,6 +39,8 @@ enum Command {
     BuildCompletion(build_completion::Options),
     /// Generate the public API documentation for bpfman.
     PublicApi(public_api::Options),
+    /// Run lint.
+    Lint(lint::Options),
 }
 
 fn main() {
@@ -58,6 +61,7 @@ fn main() {
         BuildManPage(opts) => build_manpage::build_manpage(opts),
         BuildCompletion(opts) => build_completion::build_completion(opts),
         PublicApi(opts) => public_api::public_api(opts, metadata),
+        Lint(_) => lint::lint(),
     };
 
     if let Err(e) = ret {
