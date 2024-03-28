@@ -1,7 +1,7 @@
-# Tutorial
+#  bpfman on Linux Tutorial
 
 This tutorial will show you how to use `bpfman`.
-There are several ways to launch and interact with `bpfman` and `bpfman`:
+There are several ways to launch and interact with `bpfman`:
 
 * **Local Host** - Run `bpfman` as a privileged process straight from build directory.
   See [Local Host](#local-host).
@@ -64,7 +64,7 @@ sudo ./target/debug/bpfman load image --image-url quay.io/bpfman-bytecode/xdp_pa
 
  Kernel State
 ----------------------------------
- ID:                               6213
+ Program ID:                       6213
  Name:                             pass
  Type:                             xdp
  Loaded At:                        2023-07-17T17:48:10-0400
@@ -111,7 +111,7 @@ sudo ./target/debug/bpfman get 6213
 
  Kernel State
 ----------------------------------
- ID:                               6213
+ Program ID:                       6213
  Name:                             pass
  Type:                             xdp
  Loaded At:                        2023-07-17T17:48:10-0400
@@ -152,7 +152,7 @@ sudo ./target/debug/bpfman load image --image-url quay.io/bpfman-bytecode/xdp_pa
 
  Kernel State
 ----------------------------------
- ID:                               6215
+ Program ID:                       6215
  Name:                             pass
  Type:                             xdp
 :
@@ -177,7 +177,7 @@ sudo ./target/debug/bpfman load image --image-url quay.io/bpfman-bytecode/xdp_pa
 
  Kernel State
 ----------------------------------
- ID:                               6217
+ Program ID:                       6217
  Name:                             pass
  Type:                             xdp
 :
@@ -213,7 +213,7 @@ sudo ./target/debug/bpfman get 6213
 
  Kernel State
 ----------------------------------
- ID:                               6213
+ Program ID:                       6213
  Name:                             pass
  Type:                             xdp
 :
@@ -232,7 +232,7 @@ sudo ./target/debug/bpfman get 6215
 
  Kernel State
 ----------------------------------
- ID:                               6215
+ Program ID:                       6215
  Name:                             pass
  Type:                             xdp
 :
@@ -251,7 +251,7 @@ sudo ./target/debug/bpfman get 6217
 
  Kernel State
 ----------------------------------
- ID:                               6217
+ Program ID:                       6217
  Name:                             pass
  Type:                             xdp
 :
@@ -282,7 +282,7 @@ sudo ./target/debug/bpfman load image --image-url quay.io/bpfman-bytecode/xdp_pa
 
  Kernel State
 ----------------------------------
- ID:                               6219
+ Program ID:                       6219
  Name:                             pass
  Type:                             xdp
 :
@@ -337,7 +337,7 @@ sudo ./target/debug/bpfman list
 
  Kernel State
 ----------------------------------
- ID:                               6215
+ Program ID:                       6215
  Name:                             pass
  Type:                             xdp
 :
@@ -362,7 +362,7 @@ sudo ./target/debug/bpfman list
 
  Kernel State
 ----------------------------------
- ID:                               6217
+ Program ID:                       6217
  Name:                             pass
  Type:                             xdp
 :
@@ -387,7 +387,7 @@ sudo ./target/debug/bpfman list
 
  Kernel State
 ----------------------------------
- ID:                               6219
+ Program ID:                       6219
  Name:                             pass
  Type:                             xdp
 :
