@@ -19,4 +19,6 @@ FROM registry.fedoraproject.org/fedora-minimal:latest
 
 COPY --from=gocounter-build  /usr/src/bpfman/examples/go-xdp-counter/go-xdp-counter .
 
+USER go-xdp-counter:go-xdp-counter
+
 ENTRYPOINT ["./go-xdp-counter", "--crd"]
