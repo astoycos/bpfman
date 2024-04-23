@@ -123,7 +123,8 @@ impl LoadCommands {
                 container_pid,
             } => {
                 if container_pid.is_some() {
-                    bail!("kprobe container option not supported yet");
+                    panic!("kprobe container option not supported yet");
+                    //bail!("kprobe container option not supported yet");
                 }
                 let offset = offset.unwrap_or(0);
                 Ok(Program::Kprobe(KprobeProgram::new(

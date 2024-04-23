@@ -56,6 +56,7 @@ fn test_load_unload_xdp() {
                 lt,
                 XDP_PASS_IMAGE_LOC,
                 XDP_PASS_FILE_LOC,
+                XDP_PASS_NAME,
                 None, // metadata
                 None, // map_owner_id
             );
@@ -93,7 +94,8 @@ fn test_map_sharing_load_unload_xdp() {
         None, // proceed_on
         &load_type,
         XDP_COUNTER_IMAGE_LOC,
-        "",   // file_path
+        "", // file_path
+        XDP_PASS_NAME,
         None, // metadata
         None, // map_owner_id
     );
@@ -123,12 +125,13 @@ fn test_map_sharing_load_unload_xdp() {
     };
     let (shared_owner_id, stdout_2) = add_xdp(
         DEFAULT_BPFMAN_IFACE,
-        50,
+        50,   // priority
         None, // globals
         None, // proceed_on
         &load_type,
         XDP_COUNTER_IMAGE_LOC,
-        "",
+        "", // file_path
+        XDP_PASS_NAME,
         None, // metadata
         map_owner_id_u32,
     );
@@ -257,6 +260,7 @@ fn test_load_unload_tracepoint() {
             lt,
             TRACEPOINT_IMAGE_LOC,
             TRACEPOINT_FILE_LOC,
+            TRACEPOINT_TRACEPOINT_NAME,
         );
         loaded_ids.push(prog_id.unwrap());
     }
@@ -278,7 +282,9 @@ fn test_load_unload_uprobe() {
             lt,
             UPROBE_IMAGE_LOC,
             URETPROBE_FILE_LOC,
-            None,
+            UPROBE_KERNEL_FUNCTION_NAME,
+            UPROBE_TARGET,
+            None, // container_pid
         )
         .unwrap();
         loaded_ids.push(prog_id);
@@ -301,6 +307,8 @@ fn test_load_unload_uretprobe() {
             lt,
             URETPROBE_IMAGE_LOC,
             URETPROBE_FILE_LOC,
+            URETPROBE_FUNCTION_NAME,
+            None, // target
         )
         .unwrap();
         loaded_ids.push(prog_id);
@@ -318,8 +326,15 @@ fn test_load_unload_kprobe() {
     let mut loaded_ids = vec![];
 
     for lt in LOAD_TYPES {
-        let prog_id =
-            add_kprobe(Some(globals.clone()), lt, KPROBE_IMAGE_LOC, KPROBE_FILE_LOC).unwrap();
+        let prog_id = add_kprobe(
+            Some(globals.clone()),
+            lt,
+            KPROBE_IMAGE_LOC,
+            KPROBE_FILE_LOC,
+            KPROBE_KERNEL_FUNCTION_NAME,
+            None, // container_pid
+        )
+        .unwrap();
         loaded_ids.push(prog_id);
     }
 
@@ -341,6 +356,7 @@ fn test_load_unload_kretprobe() {
             lt,
             KRETPROBE_IMAGE_LOC,
             KRETPROBE_FILE_LOC,
+            KPROBE_KERNEL_FUNCTION_NAME,
         )
         .unwrap();
         loaded_ids.push(prog_id);
@@ -391,6 +407,7 @@ fn test_list_with_metadata() {
                 lt,
                 XDP_PASS_IMAGE_LOC,
                 XDP_PASS_FILE_LOC,
+                XDP_PASS_NAME,
                 None, // metadata
                 None, // map_owner_id
             );
@@ -408,6 +425,7 @@ fn test_list_with_metadata() {
         &LoadType::Image,
         XDP_PASS_IMAGE_LOC,
         XDP_PASS_FILE_LOC,
+        XDP_PASS_NAME,
         Some(vec![key]),
         None, // map_owner_id
     );
@@ -437,7 +455,14 @@ fn test_load_unload_fentry() {
     let mut loaded_ids = vec![];
 
     for lt in LOAD_TYPES {
-        let prog_id = add_fentry_or_fexit(lt, FENTRY_IMAGE_LOC, FENTRY_FILE_LOC, true).unwrap();
+        let prog_id = add_fentry_or_fexit(
+            lt,
+            FENTRY_IMAGE_LOC,
+            FENTRY_FILE_LOC,
+            true,
+            FENTRY_FEXIT_KERNEL_FUNCTION_NAME,
+        )
+        .unwrap();
         loaded_ids.push(prog_id);
     }
 
@@ -451,7 +476,14 @@ fn test_load_unload_fexit() {
     let mut loaded_ids = vec![];
 
     for lt in LOAD_TYPES {
-        let prog_id = add_fentry_or_fexit(lt, FEXIT_IMAGE_LOC, FEXIT_FILE_LOC, false).unwrap();
+        let prog_id = add_fentry_or_fexit(
+            lt,
+            FEXIT_IMAGE_LOC,
+            FEXIT_FILE_LOC,
+            false,
+            FENTRY_FEXIT_KERNEL_FUNCTION_NAME,
+        )
+        .unwrap();
         loaded_ids.push(prog_id);
     }
 
