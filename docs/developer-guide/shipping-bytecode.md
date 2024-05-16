@@ -10,7 +10,7 @@ bytecode to all nodes which need it.
 
 ## Specifications
 
-We provide two distinct spec variants here to ensure interoperatiblity with existing registries
+We provide two distinct spec variants here to ensure interoperability with existing registries
 and packages which do no support the new custom media types defined here.
 
 - [custom-data-type-spec](#custom-oci-compatible-spec)
