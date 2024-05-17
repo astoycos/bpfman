@@ -4,7 +4,8 @@
 use std::io::{copy, Read};
 
 use flate2::read::GzDecoder;
-use log::{debug, trace};
+use log::{debug, trace, warn};
+use object::{Endianness, Object};
 use oci_distribution::{
     client::{ClientConfig, ClientProtocol},
     manifest,
@@ -21,21 +22,24 @@ use tar::Archive;
 use crate::{
     oci_utils::{cosign::CosignVerifier, ImageError},
     types::ImagePullPolicy,
+    utils::{bytes_to_usize, sled_get, sled_insert},
 };
 
 #[derive(Deserialize)]
 #[allow(dead_code)]
-// TODO(astoycos) upgrade the oci image spec based on
-// https://opencontainers.org/posts/blog/2023-07-07-summary-of-upcoming-changes-in-oci-image-and-distribution-specs-v-1-1/#1-official-guidance-on-how-to-create-and-store-alternative-even-non-container-artifacts
 pub struct ContainerImageMetadata {
     #[serde(rename(deserialize = "io.ebpf.program_name"))]
-    pub name: String,
+    pub name: Option<String>,
     #[serde(rename(deserialize = "io.ebpf.bpf_function_name"))]
     pub bpf_function_name: String,
     #[serde(rename(deserialize = "io.ebpf.program_type"))]
-    pub program_type: String,
+    pub program_type: Option<String>,
     #[serde(rename(deserialize = "io.ebpf.filename"))]
-    pub filename: String,
+    pub filename: Option<String>,
+    #[serde(rename(deserialize = "io.ebpf.filename_eb"))]
+    pub eb_file: Option<String>,
+    #[serde(rename(deserialize = "io.ebpf.filename_eb"))]
+    pub el_file: Option<String>,
 }
 
 pub struct ImageManager {
@@ -167,13 +171,6 @@ impl ImageManager {
 
         let image_config_path = base_key.to_string() + config_sha;
 
-        let bytecode_sha = image_manifest.layers[0]
-            .digest
-            .split(':')
-            .collect::<Vec<&str>>()[1];
-
-        let bytecode_path = base_key.to_string() + bytecode_sha;
-
         let image_config: Value = serde_json::from_str(&config_contents)
             .map_err(|e| ImageError::ByteCodeImageProcessFailure(e.into()))?;
         trace!("Raw container image config {}", image_config);
@@ -192,7 +189,7 @@ impl ImageManager {
             ImageError::DatabaseError("failed to flush db".to_string(), e.to_string())
         })?;
 
-        let image_content = self
+        let layers = self
             .client
             .pull(
                 &image,
@@ -204,17 +201,65 @@ impl ImageManager {
             )
             .await
             .map_err(ImageError::BytecodeImagePullFailure)?
-            .layers
-            .into_iter()
-            .next()
-            .map(|layer| layer.data)
-            .ok_or(ImageError::BytecodeImageExtractFailure)?;
+            .layers;
 
-        root_db.insert(bytecode_path, image_content).map_err(|e| {
+        // Support legacy bytecode images where there was only one layer (build machine endian),
+        // Otherwise make sure to store only the correct endian target for the system
+        let mut layer_index = 0;
+        let image_content = if layers.len() == 1 {
+            warn!("Bytecode image is using legacy format (single layer) please package both little and big endian images in the future.");
+            layer_index = 0;
+            Ok(layers[layer_index].data.clone())
+        } else if layers.len() == 2 {
+            let image_content_1 = get_bytecode_from_gzip(layers[0].data.clone());
+            let image_content_2 = get_bytecode_from_gzip(layers[1].data.clone());
+
+            let obj_1_endianness = object::read::File::parse(image_content_1.as_slice())
+                .map_err(|e| ImageError::BytecodeImageExtractFailure(e.to_string()))?
+                .endianness();
+            let obj_2_endianness = object::read::File::parse(image_content_2.as_slice())
+                .map_err(|e| ImageError::BytecodeImageExtractFailure(e.to_string()))?
+                .endianness();
+
+            if obj_1_endianness == obj_2_endianness {
+                return Err(ImageError::BytecodeImageExtractFailure(
+                    "image bytecode variants are same endianness".to_string(),
+                ));
+            }
+
+            if Endianness::default() == obj_1_endianness {
+                layer_index = 0;
+            } else {
+                layer_index = 1;
+            };
+
+            Ok(layers[layer_index].data.clone())
+        } else {
+            Err(ImageError::BytecodeImageExtractFailure(
+                "failed to parse bytecode image with {layers.len()} layers".to_string(),
+            ))
+        }?;
+
+        debug!("Layer index {layer_index} matches host endian");
+
+        let bytecode_sha = image_manifest.layers[layer_index]
+            .digest
+            .split(':')
+            .collect::<Vec<&str>>()[1];
+
+        let bytecode_path = base_key.to_string() + bytecode_sha;
+
+        sled_insert(
+            root_db,
+            &format!("{base_key}_layer_index"),
+            &layer_index.to_ne_bytes(),
+        )
+        .map_err(|e| {
             ImageError::DatabaseError("failed to write to db".to_string(), e.to_string())
         })?;
-        root_db.flush().map_err(|e| {
-            ImageError::DatabaseError("failed to flush db".to_string(), e.to_string())
+
+        sled_insert(root_db, &bytecode_path, &image_content).map_err(|e| {
+            ImageError::DatabaseError("failed to write to db".to_string(), e.to_string())
         })?;
 
         Ok(image_labels)
@@ -225,6 +270,14 @@ impl ImageManager {
         root_db: &Db,
         base_key: String,
     ) -> Result<Vec<u8>, ImageError> {
+        let layer_index = sled_get(root_db, &format!("{base_key}_layer_index"))
+            .map(bytes_to_usize)
+            .map_err(|e| {
+                ImageError::DatabaseError("failed to read db".to_string(), e.to_string())
+            })?;
+
+        debug! {"Layer index {layer_index} on get_bytecode_from_image_store"};
+
         let manifest = serde_json::from_str::<OciImageManifest>(
             std::str::from_utf8(
                 &root_db
@@ -243,8 +296,7 @@ impl ImageManager {
             )
         })?;
 
-        let bytecode_sha = &manifest.layers[0].digest;
-
+        let bytecode_sha = &manifest.layers[layer_index].digest;
         let bytecode_key = base_key + bytecode_sha.clone().split(':').collect::<Vec<&str>>()[1];
 
         debug!(
@@ -267,32 +319,13 @@ impl ImageManager {
 
         if *bytecode_sha != expected_sha {
             debug!(
-                "actual SHA256: {}\nexpected SHA256: {:?}",
+                "actual SHA256: {}\nexpected SHA256:{:?}",
                 bytecode_sha, expected_sha
             );
             panic!("Bpf Bytecode has been compromised")
         }
 
-        // The data is of OCI media type "application/vnd.oci.image.layer.v1.tar+gzip" or
-        // "application/vnd.docker.image.rootfs.diff.tar.gzip"
-        // decode and unpack to access bytecode
-        let unzipped_tarball = GzDecoder::new(f.as_ref());
-
-        return Ok(Archive::new(unzipped_tarball)
-            .entries()
-            .expect("unable to parse tarball entries")
-            .filter_map(|e| e.ok())
-            .map(|mut entry| {
-                let mut data = Vec::new();
-                entry
-                    .read_to_end(&mut data)
-                    .expect("unable to read bytecode tarball entry");
-                data
-            })
-            .collect::<Vec<Vec<u8>>>()
-            .first()
-            .expect("unable to get bytecode file bytes")
-            .to_owned());
+        Ok(get_bytecode_from_gzip(f.as_ref().to_vec()))
     }
 
     fn load_image_meta(
@@ -361,6 +394,25 @@ fn get_image_content_key(image: &Reference) -> String {
     )
 }
 
+fn get_bytecode_from_gzip(bytes: Vec<u8>) -> Vec<u8> {
+    let decoder = GzDecoder::new(bytes.as_slice());
+    Archive::new(decoder)
+        .entries()
+        .expect("unable to parse tarball entries")
+        .filter_map(|e| e.ok())
+        .map(|mut entry| {
+            let mut data = Vec::new();
+            entry
+                .read_to_end(&mut data)
+                .expect("unable to read bytecode tarball entry");
+            data
+        })
+        .collect::<Vec<Vec<u8>>>()
+        .first()
+        .expect("unable to get bytecode file bytes")
+        .to_owned()
+}
+
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
@@ -369,7 +421,7 @@ mod tests {
     use crate::{get_db_config, init_database};
 
     #[tokio::test]
-    async fn image_pull_and_bytecode_verify() {
+    async fn image_pull_and_bytecode_verify_legacy() {
         let root_db = init_database(get_db_config())
             .await
             .expect("Unable to open root database for unit test");
@@ -385,8 +437,37 @@ mod tests {
             .await
             .expect("failed to pull bytecode");
 
-        // Assert that an manifest, config and bytecode key were formed for image.
-        assert!(root_db.scan_prefix(image_content_key.clone()).count() == 3);
+        // Assert that an manifest, config, layer_index and bytecode key were formed for image.
+        assert!(root_db.scan_prefix(image_content_key.clone()).count() == 4);
+
+        let program_bytes = mgr
+            .get_bytecode_from_image_store(&root_db, image_content_key)
+            .expect("failed to get bytecode from image store");
+
+        assert!(!program_bytes.is_empty())
+    }
+
+    #[tokio::test]
+    async fn image_pull_and_bytecode_verify() {
+        env_logger::init();
+
+        let root_db = init_database(get_db_config())
+            .await
+            .expect("Unable to open root database for unit test");
+        let mut mgr = ImageManager::new(true).await.unwrap();
+        let (image_content_key, _) = mgr
+            .get_image(
+                &root_db,
+                "quay.io/bpfman-bytecode/go_xdp_counter_multi:latest",
+                ImagePullPolicy::Always,
+                None,
+                None,
+            )
+            .await
+            .expect("failed to pull bytecode");
+
+        // Assert that an manifest, config, layer_index and bytecode key were formed for image.
+        assert!(root_db.scan_prefix(image_content_key.clone()).count() == 4);
 
         let program_bytes = mgr
             .get_bytecode_from_image_store(&root_db, image_content_key)
@@ -452,8 +533,8 @@ mod tests {
             .await
             .expect("failed to pull bytecode");
 
-        // Assert that an manifest, config and bytecode key were formed for image.
-        assert!(root_db.scan_prefix(image_content_key.clone()).count() == 3);
+        // Assert that an manifest, config, layer_index and bytecode key were formed for image.
+        assert!(root_db.scan_prefix(image_content_key.clone()).count() == 4);
 
         let program_bytes = mgr
             .get_bytecode_from_image_store(&root_db, image_content_key)
