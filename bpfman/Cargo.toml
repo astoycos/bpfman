@@ -20,6 +20,7 @@ path = "src/bin/cli/main.rs"
 anyhow = { workspace = true, features = ["std"] }
 async-trait = { workspace = true }
 aya = { workspace = true }
+aya-obj = { workspace = true }
 base16ct = { workspace = true, features = ["alloc"] }
 base64 = { workspace = true }
 bpfman-csi = { workspace = true }

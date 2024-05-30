@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of bpfman
 
-use std::io::{copy, Read};
+use std::{
+    collections::HashMap,
+    io::{copy, Read},
+};
 
+use anyhow::anyhow;
 use flate2::read::GzDecoder;
-use log::{debug, trace, warn};
+use log::{debug, trace};
 use object::{Endianness, Object};
 use oci_distribution::{
     client::{ClientConfig, ClientProtocol},
@@ -22,24 +26,39 @@ use tar::Archive;
 use crate::{
     oci_utils::{cosign::CosignVerifier, ImageError},
     types::ImagePullPolicy,
-    utils::{bytes_to_usize, sled_get, sled_insert},
+    utils::{sled_get, sled_insert},
 };
 
-#[derive(Deserialize)]
-#[allow(dead_code)]
+const OCI_PROGRAMS_LABEL: &str = "io.ebpf.programs";
+const OCI_MAPS_LABEL: &str = "io.ebpf.maps";
+
+#[derive(Debug)]
 pub struct ContainerImageMetadata {
+    pub programs: HashMap<String, String>,
+    pub _maps: HashMap<String, String>,
+}
+
+impl From<ContainerImageMetadataV1> for ContainerImageMetadata {
+    fn from(value: ContainerImageMetadataV1) -> Self {
+        let mut programs = HashMap::new();
+        programs.insert(value.bpf_function_name, value.program_type);
+        ContainerImageMetadata {
+            programs,
+            _maps: HashMap::new(),
+        }
+    }
+}
+
+#[derive(Deserialize)]
+pub struct ContainerImageMetadataV1 {
     #[serde(rename(deserialize = "io.ebpf.program_name"))]
-    pub name: Option<String>,
+    pub _name: String,
     #[serde(rename(deserialize = "io.ebpf.bpf_function_name"))]
     pub bpf_function_name: String,
     #[serde(rename(deserialize = "io.ebpf.program_type"))]
-    pub program_type: Option<String>,
+    pub program_type: String,
     #[serde(rename(deserialize = "io.ebpf.filename"))]
-    pub filename: Option<String>,
-    #[serde(rename(deserialize = "io.ebpf.filename_eb"))]
-    pub eb_file: Option<String>,
-    #[serde(rename(deserialize = "io.ebpf.filename_eb"))]
-    pub el_file: Option<String>,
+    pub _filename: String,
 }
 
 pub struct ImageManager {
@@ -68,7 +87,7 @@ impl ImageManager {
         pull_policy: ImagePullPolicy,
         username: Option<String>,
         password: Option<String>,
-    ) -> Result<(String, String), ImageError> {
+    ) -> Result<(String, Vec<String>), ImageError> {
         // The reference created here is created using the krustlet oci-distribution
         // crate. It currently contains many defaults more of which can be seen
         // here: https://github.com/krustlet/oci-distribution/blob/main/src/reference.rs#L58
@@ -108,7 +127,10 @@ impl ImageManager {
             }
         };
 
-        Ok((image_content_key.to_string(), image_meta.bpf_function_name))
+        Ok((
+            image_content_key.to_string(),
+            image_meta.programs.into_keys().collect(),
+        ))
     }
 
     fn get_auth_for_registry(
@@ -153,14 +175,8 @@ impl ImageManager {
         let image_manifest_json = serde_json::to_string(&image_manifest)
             .map_err(|e| ImageError::ByteCodeImageProcessFailure(e.into()))?;
 
-        // inset and flush to disk to avoid races across threads on write.
-        root_db
-            .insert(image_manifest_key, image_manifest_json.as_str())
-            .map_err(|e| {
-                ImageError::DatabaseError("failed to write to db".to_string(), e.to_string())
-            })?;
-        root_db.flush().map_err(|e| {
-            ImageError::DatabaseError("failed to flush db".to_string(), e.to_string())
+        sled_insert(root_db, &image_manifest_key, image_manifest_json.as_bytes()).map_err(|e| {
+            ImageError::DatabaseError("failed to write to db".to_string(), e.to_string())
         })?;
 
         let config_sha = &image_manifest
@@ -175,10 +191,35 @@ impl ImageManager {
             .map_err(|e| ImageError::ByteCodeImageProcessFailure(e.into()))?;
         trace!("Raw container image config {}", image_config);
 
-        // Deserialize image metadata(labels) from json config
-        let image_labels: ContainerImageMetadata =
-            serde_json::from_str(&image_config["config"]["Labels"].to_string())
-                .map_err(|e| ImageError::ByteCodeImageProcessFailure(e.into()))?;
+        let labels_map = image_config["config"]["Labels"].as_object().ok_or(
+            ImageError::ByteCodeImageProcessFailure(anyhow!("Labels not found")),
+        )?;
+
+        // The values of the Labels `io.ebpf.maps` and `io.ebpf.programs` are in JSON format try and
+        // parse those, if that fails fallback to the V1 version of the metadata spec,
+        // if that fails error out.
+        let image_labels = match (
+            labels_map.get(OCI_MAPS_LABEL),
+            labels_map.get(OCI_PROGRAMS_LABEL),
+        ) {
+            (Some(maps), Some(programs)) => ContainerImageMetadata {
+                _maps: serde_json::from_str::<HashMap<String, String>>(maps.as_str().unwrap())
+                    .map_err(|e| ImageError::ByteCodeImageProcessFailure(e.into()))?,
+                programs: serde_json::from_str::<HashMap<String, String>>(
+                    programs.as_str().unwrap(),
+                )
+                .map_err(|e| ImageError::ByteCodeImageProcessFailure(e.into()))?,
+            },
+            _ => {
+                // Try to deserialize from older version of metadata
+                match serde_json::from_str::<ContainerImageMetadataV1>(
+                    &image_config["config"]["Labels"].to_string(),
+                ) {
+                    Ok(labels) => labels.into(),
+                    Err(e) => return Err(ImageError::ByteCodeImageProcessFailure(e.into())),
+                }
+            }
+        };
 
         root_db
             .insert(image_config_path, config_contents.as_str())
@@ -189,7 +230,7 @@ impl ImageManager {
             ImageError::DatabaseError("failed to flush db".to_string(), e.to_string())
         })?;
 
-        let layers = self
+        let image_content = self
             .client
             .pull(
                 &image,
@@ -201,62 +242,33 @@ impl ImageManager {
             )
             .await
             .map_err(ImageError::BytecodeImagePullFailure)?
-            .layers;
+            .layers
+            .into_iter()
+            .next()
+            .map(|layer| layer.data)
+            .ok_or(ImageError::BytecodeImageExtractFailure(
+                "No data in bytecode image layer".to_string(),
+            ))?;
 
-        // Support legacy bytecode images where there was only one layer (build machine endian),
-        // Otherwise make sure to store only the correct endian target for the system
-        let mut layer_index = 0;
-        let image_content = if layers.len() == 1 {
-            warn!("Bytecode image is using legacy format (single layer) please package both little and big endian images in the future.");
-            layer_index = 0;
-            Ok(layers[layer_index].data.clone())
-        } else if layers.len() == 2 {
-            let image_content_1 = get_bytecode_from_gzip(layers[0].data.clone());
-            let image_content_2 = get_bytecode_from_gzip(layers[1].data.clone());
+        // Make sure endian target matches that of the system before storing
+        let unzipped_content = get_bytecode_from_gzip(image_content.clone());
+        let obj_endianness = object::read::File::parse(unzipped_content.as_slice())
+            .map_err(|e| ImageError::BytecodeImageExtractFailure(e.to_string()))?
+            .endianness();
+        let host_endianness = Endianness::default();
 
-            let obj_1_endianness = object::read::File::parse(image_content_1.as_slice())
-                .map_err(|e| ImageError::BytecodeImageExtractFailure(e.to_string()))?
-                .endianness();
-            let obj_2_endianness = object::read::File::parse(image_content_2.as_slice())
-                .map_err(|e| ImageError::BytecodeImageExtractFailure(e.to_string()))?
-                .endianness();
+        if host_endianness != obj_endianness {
+            return Err(ImageError::BytecodeImageExtractFailure(
+                format!("image bytecode endianness: {obj_endianness:?} does not match host {host_endianness:?}"),
+            ));
+        };
 
-            if obj_1_endianness == obj_2_endianness {
-                return Err(ImageError::BytecodeImageExtractFailure(
-                    "image bytecode variants are same endianness".to_string(),
-                ));
-            }
-
-            if Endianness::default() == obj_1_endianness {
-                layer_index = 0;
-            } else {
-                layer_index = 1;
-            };
-
-            Ok(layers[layer_index].data.clone())
-        } else {
-            Err(ImageError::BytecodeImageExtractFailure(
-                "failed to parse bytecode image with {layers.len()} layers".to_string(),
-            ))
-        }?;
-
-        debug!("Layer index {layer_index} matches host endian");
-
-        let bytecode_sha = image_manifest.layers[layer_index]
+        let bytecode_sha = image_manifest.layers[0]
             .digest
             .split(':')
             .collect::<Vec<&str>>()[1];
 
         let bytecode_path = base_key.to_string() + bytecode_sha;
-
-        sled_insert(
-            root_db,
-            &format!("{base_key}_layer_index"),
-            &layer_index.to_ne_bytes(),
-        )
-        .map_err(|e| {
-            ImageError::DatabaseError("failed to write to db".to_string(), e.to_string())
-        })?;
 
         sled_insert(root_db, &bytecode_path, &image_content).map_err(|e| {
             ImageError::DatabaseError("failed to write to db".to_string(), e.to_string())
@@ -270,22 +282,11 @@ impl ImageManager {
         root_db: &Db,
         base_key: String,
     ) -> Result<Vec<u8>, ImageError> {
-        let layer_index = sled_get(root_db, &format!("{base_key}_layer_index"))
-            .map(bytes_to_usize)
-            .map_err(|e| {
-                ImageError::DatabaseError("failed to read db".to_string(), e.to_string())
-            })?;
-
-        debug! {"Layer index {layer_index} on get_bytecode_from_image_store"};
-
         let manifest = serde_json::from_str::<OciImageManifest>(
             std::str::from_utf8(
-                &root_db
-                    .get(base_key.clone() + "manifest.json")
-                    .map_err(|e| {
-                        ImageError::DatabaseError("failed to read db".to_string(), e.to_string())
-                    })?
-                    .expect("Image manifest is empty"),
+                &sled_get(root_db, &(base_key.clone() + "manifest.json")).map_err(|e| {
+                    ImageError::DatabaseError("failed to read db".to_string(), e.to_string())
+                })?,
             )
             .unwrap(),
         )
@@ -296,7 +297,7 @@ impl ImageManager {
             )
         })?;
 
-        let bytecode_sha = &manifest.layers[layer_index].digest;
+        let bytecode_sha = &manifest.layers[0].digest;
         let bytecode_key = base_key + bytecode_sha.clone().split(':').collect::<Vec<&str>>()[1];
 
         debug!(
@@ -304,16 +305,12 @@ impl ImageManager {
             bytecode_key
         );
 
-        let f = root_db
-            .get(bytecode_key.clone())
-            .map_err(|e| ImageError::DatabaseError("failed to read db".to_string(), e.to_string()))?
-            .ok_or(ImageError::DatabaseError(
-                "key does not exist in db".to_string(),
-                String::new(),
-            ))?;
+        let f = sled_get(root_db, &bytecode_key).map_err(|e| {
+            ImageError::DatabaseError("failed to read db".to_string(), e.to_string())
+        })?;
 
         let mut hasher = Sha256::new();
-        copy(&mut f.as_ref(), &mut hasher).expect("cannot copy bytecode to hasher");
+        copy(&mut f.as_slice(), &mut hasher).expect("cannot copy bytecode to hasher");
         let hash = hasher.finalize();
         let expected_sha = "sha256:".to_owned() + &base16ct::lower::encode_string(&hash);
 
@@ -325,22 +322,19 @@ impl ImageManager {
             panic!("Bpf Bytecode has been compromised")
         }
 
-        Ok(get_bytecode_from_gzip(f.as_ref().to_vec()))
+        Ok(get_bytecode_from_gzip(f))
     }
 
     fn load_image_meta(
         &self,
         root_db: &Db,
         image_content_key: &str,
-    ) -> Result<ContainerImageMetadata, anyhow::Error> {
+    ) -> Result<ContainerImageMetadata, ImageError> {
         let manifest = serde_json::from_str::<OciImageManifest>(
             std::str::from_utf8(
-                &root_db
-                    .get(image_content_key.to_string() + "manifest.json")
-                    .map_err(|e| {
-                        ImageError::DatabaseError("failed to read db".to_string(), e.to_string())
-                    })?
-                    .expect("Image manifest is empty"),
+                &sled_get(root_db, &(image_content_key.to_string() + "manifest.json")).map_err(
+                    |e| ImageError::DatabaseError("failed to read db".to_string(), e.to_string()),
+                )?,
             )
             .unwrap(),
         )
@@ -355,12 +349,12 @@ impl ImageManager {
 
         let image_config_key = image_content_key.to_string() + config_sha;
 
-        let db_content = &root_db
-            .get(image_config_key)
-            .map_err(|e| ImageError::DatabaseError("failed to read db".to_string(), e.to_string()))?
-            .expect("Image manifest is empty");
+        let db_content = sled_get(root_db, &image_config_key).map_err(|e| {
+            ImageError::DatabaseError("failed to read db".to_string(), e.to_string())
+        })?;
 
-        let file_content = std::str::from_utf8(db_content)?;
+        let file_content = std::str::from_utf8(&db_content)
+            .map_err(|e| ImageError::ByteCodeImageProcessFailure(e.into()))?;
 
         let image_config: Value =
             serde_json::from_str(file_content).expect("cannot parse image config from database");
@@ -369,9 +363,34 @@ impl ImageManager {
             &image_config["config"]["Labels"].to_string()
         );
 
-        Ok(serde_json::from_str::<ContainerImageMetadata>(
-            &image_config["config"]["Labels"].to_string(),
-        )?)
+        let labels_map = image_config["config"]["Labels"].as_object().ok_or(
+            ImageError::ByteCodeImageProcessFailure(anyhow!("Labels not found")),
+        )?;
+
+        Ok(
+            match (
+                labels_map.get(OCI_MAPS_LABEL),
+                labels_map.get(OCI_PROGRAMS_LABEL),
+            ) {
+                (Some(maps), Some(programs)) => ContainerImageMetadata {
+                    _maps: serde_json::from_str::<HashMap<String, String>>(maps.as_str().unwrap())
+                        .map_err(|e| ImageError::ByteCodeImageProcessFailure(e.into()))?,
+                    programs: serde_json::from_str::<HashMap<String, String>>(
+                        programs.as_str().unwrap(),
+                    )
+                    .map_err(|e| ImageError::ByteCodeImageProcessFailure(e.into()))?,
+                },
+                _ => {
+                    // Try to deserialize from older version of metadata
+                    match serde_json::from_str::<ContainerImageMetadataV1>(
+                        &image_config["config"]["Labels"].to_string(),
+                    ) {
+                        Ok(labels) => labels.into(),
+                        Err(e) => return Err(ImageError::ByteCodeImageProcessFailure(e.into())),
+                    }
+                }
+            },
+        )
     }
 }
 
@@ -429,16 +448,13 @@ mod tests {
         let (image_content_key, _) = mgr
             .get_image(
                 &root_db,
-                "quay.io/bpfman-bytecode/xdp_pass:latest",
+                "quay.io/bpfman-bytecode/go-xdp-counter-legacy-labels:latest",
                 ImagePullPolicy::Always,
                 None,
                 None,
             )
             .await
             .expect("failed to pull bytecode");
-
-        // Assert that an manifest, config, layer_index and bytecode key were formed for image.
-        assert!(root_db.scan_prefix(image_content_key.clone()).count() == 4);
 
         let program_bytes = mgr
             .get_bytecode_from_image_store(&root_db, image_content_key)
@@ -458,16 +474,13 @@ mod tests {
         let (image_content_key, _) = mgr
             .get_image(
                 &root_db,
-                "quay.io/bpfman-bytecode/go_xdp_counter_multi:latest",
+                "quay.io/bpfman-bytecode/go-xdp-counter:latest",
                 ImagePullPolicy::Always,
                 None,
                 None,
             )
             .await
             .expect("failed to pull bytecode");
-
-        // Assert that an manifest, config, layer_index and bytecode key were formed for image.
-        assert!(root_db.scan_prefix(image_content_key.clone()).count() == 4);
 
         let program_bytes = mgr
             .get_bytecode_from_image_store(&root_db, image_content_key)
@@ -532,9 +545,6 @@ mod tests {
             )
             .await
             .expect("failed to pull bytecode");
-
-        // Assert that an manifest, config, layer_index and bytecode key were formed for image.
-        assert!(root_db.scan_prefix(image_content_key.clone()).count() == 4);
 
         let program_bytes = mgr
             .get_bytecode_from_image_store(&root_db, image_content_key)

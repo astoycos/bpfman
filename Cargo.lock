@@ -419,6 +419,7 @@ dependencies = [
  "assert_matches",
  "async-trait",
  "aya",
+ "aya-obj",
  "base16ct",
  "base64 0.22.1",
  "bpfman-csi",
@@ -434,7 +435,7 @@ dependencies = [
  "log",
  "netlink-packet-route",
  "nix 0.28.0",
- "object 0.35.0",
+ "object 0.32.2",
  "oci-distribution",
  "rand",
  "rtnetlink",
@@ -2586,15 +2587,6 @@ name = "object"
 version = "0.32.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6a622008b6e321afc04970976f62ee297fdbaa6f95318ca343e3eebb9648441"
-dependencies = [
- "memchr",
-]
-
-[[package]]
-name = "object"
-version = "0.35.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8ec7ab813848ba4522158d5517a6093db1ded27575b070f4177b8d12b41db5e"
 dependencies = [
  "memchr",
 ]
