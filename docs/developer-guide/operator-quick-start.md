@@ -67,7 +67,7 @@ oc apply -f ./hack/ocp-scc-hacks.yaml
 Then use `operator-sdk` to install the bundle like so:
 
 ```bash
-operator-sdk run bundle quay.io/bpfman/bpfman-operator-bundle:latest --namespace openshift-bpfman
+operator-sdk run bundle quay.io/bpfman/bpfman-operator-bundle:latest --namespace bpfman
 ```
 
 Which can then be cleaned up at a later time with:
