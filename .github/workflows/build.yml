@@ -98,9 +98,7 @@ jobs:
         run: |
           cargo install cross --git https://github.com/cross-rs/cross
 
-      ## TODO(astoycos) Deactivate the rust-cache action until we can determine
-      ## why it's freezing at the end of the install.
-      ## - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2
 
       - name: Install cargo-llvm-cov
         # Only need to run once
@@ -332,7 +330,29 @@ jobs:
     needs: [build, build-go, build-docs]
     env:
       CARGO_TERM_COLOR: always
+      XDP_PASS_IMAGE_LOC: localhost:5000/bpfman-bytecode/xdp_pass:latest
+      TC_PASS_IMAGE_LOC: localhost:5000/bpfman-bytecode/tc_pass:latest
+      TRACEPOINT_IMAGE_LOC: localhost:5000/bpfman-bytecode/tracepoint:latest
+      UPROBE_IMAGE_LOC: localhost:5000/bpfman-bytecode/uprobe:latest
+      URETPROBE_IMAGE_LOC: localhost:5000/bpfman-bytecode/uretprobe:latest
+      KPROBE_IMAGE_LOC: localhost:5000/bpfman-bytecode/kprobe:latest
+      KRETPROBE_IMAGE_LOC: localhost:5000/bpfman-bytecode/kretprobe:latest
+      XDP_COUNTER_IMAGE_LOC: localhost:5000/bpfman-bytecode/go-xdp-counter:latest
+      TC_COUNTER_IMAGE_LOC: localhost:5000/bpfman-bytecode/go-tc-counter:latest
+      TRACEPOINT_COUNTER_IMAGE_LOC: localhost:5000/bpfman-bytecode/go-tracepoint-counter:latest
+      FENTRY_IMAGE_LOC: localhost:5000/bpfman-bytecode/fentry:latest
+      FEXIT_IMAGE_LOC: localhost:5000/bpfman-bytecode/fexit:latest
+    services:
+      registry:
+        image: registry:2
+        ports:
+          - 5000:5000
     steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: network=host
+
       - name: Checkout bpfman
         uses: actions/checkout@v4
 
@@ -376,6 +396,19 @@ jobs:
       - name: Unpack CLI TAB Completion
         run: |
           tar -xzvf cli-tab-completion.tar.gz
+
+      - name: Install libelf-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y linux-headers-`uname -r` clang lldb lld libelf-dev gcc-multilib libbpf-dev
+
+      - name: Generate go wrapped eBPF
+        run: |
+          cd examples && make generate
+      
+      - name: build and push bytecode images to local registry
+        run: |
+
 
       - name: Run the bpfman installer
         run: sudo ./scripts/setup.sh install
