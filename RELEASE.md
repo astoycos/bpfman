@@ -236,3 +236,16 @@ Once these steps are completed:
 [bpfman-team]: https://github.com/bpfman/bpfman/blob/main/CODEOWNERS
 [copr-repo]: https://copr.fedorainfracloud.org/coprs/g/ebpf-sig/bpfman/
 [gh-actions]: https://github.com/bpfman/bpfman/actions
+
+#### Operator Hub
+
+The bpfman operator is packaged for and shipped on [operatorhub](https://operatorhub.io/operator/bpfman-operator) and via the RedHat Openshift platform. To maintain these
+offerings the [bpfman-operator OLM bundle](https://sdk.operatorframework.io/docs/olm-integration/quickstart-bundle/) needs to be manually updated after every release in the following
+repositories:
+
+- [community-operators-prod](https://github.com/redhat-openshift-ecosystem/community-operators-prod)
+and
+- [community-operators](https://github.com/operator-framework/community-operators)
+
+To do so open a PR against the respective repositories with an updated bundle
+pointing to the correctly released versioned images.
